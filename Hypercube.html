@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高维魔方交互式可视化工具</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #0c0f25, #1a1a40);
+            color: #e6e6e6;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        header {
+            padding: 15px 20px;
+            background: rgba(10, 15, 40, 0.9);
+            border-bottom: 1px solid rgba(100, 150, 255, 0.2);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .logo-icon {
+            font-size: 28px;
+            color: #64f5ff;
+        }
+        
+        .logo-text {
+            font-size: 22px;
+            font-weight: bold;
+            background: linear-gradient(to right, #4facfe, #00f2fe);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .subtitle {
+            font-size: 16px;
+            color: #a0b0ff;
+        }
+        
+        .dimension-tag {
+            display: inline-block;
+            background: rgba(0, 200, 255, 0.15);
+            color: #64ffda;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 14px;
+            margin: 0 5px;
+        }
+        
+        #main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            padding: 15px;
+            gap: 15px;
+        }
+        
+        #canvas-container {
+            flex: 1;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 0 40px rgba(0, 100, 255, 0.2);
+            background: rgba(5, 10, 30, 0.5);
+            border: 1px solid rgba(100, 150, 255, 0.1);
+            position: relative;
+        }
+        
+        #ui-container {
+            width: 350px;
+            display: flex;
+            flex-direction: column;
+            background: rgba(10, 15, 40, 0.9);
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(100, 150, 255, 0.2);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+        
+        .ui-header {
+            padding: 15px 20px;
+            background: rgba(20, 30, 70, 0.6);
+            border-bottom: 1px solid rgba(100, 150, 255, 0.15);
+        }
+        
+        .ui-title {
+            color: #64f5ff;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .ui-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .control-group {
+            background: rgba(20, 30, 70, 0.5);
+            padding: 18px;
+            border-radius: 10px;
+            border: 1px solid rgba(100, 150, 255, 0.15);
+        }
+        
+        .group-title {
+            margin-bottom: 16px;
+            color: #64f5ff;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .control-row {
+            margin-bottom: 15px;
+        }
+        
+        .row-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        
+        .row-title {
+            color: #a0b0ff;
+            font-weight: 500;
+        }
+        
+        .row-value {
+            color: #64ffda;
+            font-weight: bold;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            background: linear-gradient(to right, #0072ff, #00c6ff);
+            border-radius: 3px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #00f2fe;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(0, 242, 254, 0.7);
+        }
+        
+        .button-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        button {
+            padding: 12px;
+            background: linear-gradient(to right, #0072ff, #00c6ff);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+        
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 198, 255, 0.4);
+        }
+        
+        button:active {
+            transform: translateY(1px);
+        }
+        
+        .preset-buttons {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .preset-btn {
+            background: rgba(30, 40, 90, 0.7);
+            padding: 10px;
+        }
+        
+        .legend {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            font-size: 14px;
+            gap: 8px;
+        }
+        
+        .color-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 15px;
+            padding: 10px;
+            background: rgba(30, 40, 90, 0.5);
+            border-radius: 8px;
+            border-left: 3px solid #00f2fe;
+        }
+        
+        .indicator-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #4CAF50;
+        }
+        
+        footer {
+            padding: 15px 20px;
+            text-align: center;
+            color: #5d7bff;
+            font-size: 14px;
+            background: rgba(10, 15, 40, 0.7);
+            border-top: 1px solid rgba(100, 150, 255, 0.2);
+            flex-shrink: 0;
+        }
+        
+        /* 滚动条样式 */
+        .ui-content::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .ui-content::-webkit-scrollbar-track {
+            background: rgba(20, 30, 70, 0.3);
+            border-radius: 4px;
+        }
+        
+        .ui-content::-webkit-scrollbar-thumb {
+            background: linear-gradient(to bottom, #0072ff, #00c6ff);
+            border-radius: 4px;
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 900px) {
+            #main-container {
+                flex-direction: column;
+            }
+            
+            #canvas-container {
+                height: 50vh;
+            }
+            
+            #ui-container {
+                width: 100%;
+                height: 50vh;
+            }
+            
+            header {
+                flex-direction: column;
+                gap: 10px;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo">
+            <div class="logo-icon">🧊</div>
+            <div class="logo-text">高维魔方可视化</div>
+        </div>
+        <div class="subtitle">探索<span class="dimension-tag">4D</span>和<span class="dimension-tag">5D</span>超立方体的结构</div>
+    </header>
+    
+    <div id="main-container">
+        <div id="canvas-container">
+            <!-- 3D渲染区域 -->
+        </div>
+        
+        <div id="ui-container">
+            <div class="ui-header">
+                <div class="ui-title">⚙️ 控制面板</div>
+            </div>
+            
+            <div class="ui-content">
+                <div class="control-group">
+                    <div class="group-title">🔧 维度设置</div>
+                    
+                    <div class="control-row">
+                        <div class="row-header">
+                            <div class="row-title">当前维度</div>
+                            <div class="row-value" id="dim-value">4D</div>
+                        </div>
+                        <input type="range" id="dimension" min="4" max="5" value="4" step="1">
+                    </div>
+                    
+                    <div class="control-row">
+                        <div class="row-header">
+                            <div class="row-title">投影深度</div>
+                            <div class="row-value" id="depth-value">0.5</div>
+                        </div>
+                        <input type="range" id="depth" min="0.1" max="1" value="0.5" step="0.05">
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <div class="group-title">🔄 高维旋转控制</div>
+                    
+                    <div class="control-row">
+                        <div class="row-header">
+                            <div class="row-title">XY平面</div>
+                            <div class="row-value" id="xy-value">0.0°</div>
+                        </div>
+                        <input type="range" id="xy-rotation" min="0" max="360" value="0" step="1">
+                    </div>
+                    
+                    <div class="control-row">
+                        <div class="row-header">
+                            <div class="row-title">ZW平面</div>
+                            <div class="row-value" id="zw-value">0.0°</div>
+                        </div>
+                        <input type="range" id="zw-rotation" min="0" max="360" value="0" step="1">
+                    </div>
+                    
+                    <div class="control-row">
+                        <div class="row-header">
+                            <div class="row-title">XW平面</div>
+                            <div class="row-value" id="xw-value">0.0°</div>
+                        </div>
+                        <input type="range" id="xw-rotation" min="0" max="360" value="0" step="1">
+                    </div>
+                    
+                    <div class="button-group">
+                        <button id="reset-rotation-btn">重置旋转</button>
+                        <button id="reset-view-btn">重置视图</button>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <div class="group-title">⚡ 自动旋转设置</div>
+                    
+                    <div class="control-row">
+                        <div class="row-header">
+                            <div class="row-title">XY旋转速度</div>
+                            <div class="row-value" id="xy-speed-value">0.5</div>
+                        </div>
+                        <input type="range" id="xy-speed" min="-2" max="2" value="0.5" step="0.1">
+                    </div>
+                    
+                    <div class="control-row">
+                        <div class="row-header">
+                            <div class="row-title">ZW旋转速度</div>
+                            <div class="row-value" id="zw-speed-value">0.0</div>
+                        </div>
+                        <input type="range" id="zw-speed" min="-2" max="2" value="0.0" step="0.1">
+                    </div>
+                    
+                    <div class="control-row">
+                        <div class="row-header">
+                            <div class="row-title">XW旋转速度</div>
+                            <div class="row-value" id="xw-speed-value">0.0</div>
+                        </div>
+                        <input type="range" id="xw-speed" min="-2" max="2" value="0.0" step="0.1">
+                    </div>
+                    
+                    <div class="button-group">
+                        <button id="auto-rotate-btn">启动自动旋转</button>
+                        <button id="complex-rotation-btn">复杂模式</button>
+                    </div>
+                    
+                    <div class="preset-buttons">
+                        <button class="preset-btn" data-preset="basic">基础旋转</button>
+                        <button class="preset-btn" data-preset="double">双平面旋转</button>
+                        <button class="preset-btn" data-preset="complex">复杂旋转</button>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <div class="group-title">📊 图例说明</div>
+                    
+                    <div class="legend">
+                        <div class="legend-item">
+                            <div class="color-dot" style="background-color: #FF5252;"></div>
+                            <span>X 轴</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="color-dot" style="background-color: #4CAF50;"></div>
+                            <span>Y 轴</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="color-dot" style="background-color: #2196F3;"></div>
+                            <span>Z 轴</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="color-dot" style="background-color: #FFC107;"></div>
+                            <span>W 轴 (4D)</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="color-dot" style="background-color: #9C27B0;"></div>
+                            <span>V 轴 (5D)</span>
+                        </div>
+                    </div>
+                    
+                    <div class="status-indicator">
+                        <div class="indicator-dot"></div>
+                        <div>当前状态: <span id="status-text">准备就绪</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <footer>
+        <p>高维空间可视化工具 | 使用Three.js构建 | 探索数学的维度之美</p>
+    </footer>
+
+    <script>
+        // 主程序
+        document.addEventListener('DOMContentLoaded', () => {
+            // 初始化变量
+            let scene, camera, renderer, controls;
+            let hypercube = new THREE.Group();
+            let autoRotate = false;
+            let complexRotation = false;
+            let currentDimension = 4;
+            let projectionDepth = 0.5;
+            
+            // 旋转状态
+            let rotationState = {
+                xy: { angle: 0, speed: 0.5 },
+                zw: { angle: 0, speed: 0.0 },
+                xw: { angle: 0, speed: 0.0 }
+            };
+            
+            // 初始化场景
+            function init() {
+                // 创建场景
+                scene = new THREE.Scene();
+                scene.background = new THREE.Color(0x050a20);
+                
+                // 创建相机
+                const container = document.getElementById('canvas-container');
+                camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 1000);
+                camera.position.set(8, 8, 8);
+                camera.lookAt(0, 0, 0);
+                
+                // 创建渲染器
+                renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+                renderer.setSize(container.clientWidth, container.clientHeight);
+                renderer.setPixelRatio(window.devicePixelRatio);
+                container.appendChild(renderer.domElement);
+                
+                // 添加轨道控制
+                controls = new THREE.OrbitControls(camera, renderer.domElement);
+                controls.enableDamping = true;
+                controls.dampingFactor = 0.05;
+                controls.rotateSpeed = 0.8;
+                
+                // 添加光源
+                const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+                scene.add(ambientLight);
+                
+                const directionalLight1 = new THREE.DirectionalLight(0xffffff, 0.8);
+                directionalLight1.position.set(1, 1, 1);
+                scene.add(directionalLight1);
+                
+                const directionalLight2 = new THREE.DirectionalLight(0x64b5f6, 0.4);
+                directionalLight2.position.set(-1, -1, -1);
+                scene.add(directionalLight2);
+                
+                // 创建坐标轴辅助
+                const axesHelper = new THREE.AxesHelper(5);
+                scene.add(axesHelper);
+                
+                // 创建高维魔方
+                createHypercube();
+                
+                // 添加窗口大小调整事件
+                window.addEventListener('resize', onWindowResize);
+                
+                // 添加UI控制事件
+                setupUIControls();
+                
+                // 开始动画循环
+                animate();
+            }
+            
+            // 创建高维魔方
+            function createHypercube() {
+                // 清除现有的魔方
+                scene.remove(hypercube);
+                hypercube = new THREE.Group();
+                hypercube.name = "hypercube";
+                
+                // 生成顶点
+                const vertices = generateVertices(currentDimension);
+                
+                // 创建顶点球体
+                const sphereGeometry = new THREE.SphereGeometry(0.2, 16, 16);
+                
+                vertices.forEach(vertex => {
+                    // 将高维点投影到3D
+                    const projected = projectTo3D(vertex);
+                    
+                    // 根据维度设置颜色
+                    const color = getColorForDimension(vertex);
+                    
+                    const sphereMaterial = new THREE.MeshPhongMaterial({ 
+                        color,
+                        emissive: color,
+                        emissiveIntensity: 0.2
+                    });
+                    const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+                    sphere.position.set(projected[0], projected[1], projected[2]);
+                    
+                    // 存储原始高维坐标
+                    sphere.userData = { hyperCoords: [...vertex] };
+                    hypercube.add(sphere);
+                });
+                
+                // 创建边
+                createEdges(vertices);
+                
+                scene.add(hypercube);
+            }
+            
+            // 生成顶点
+            function generateVertices(dimension) {
+                const vertices = [];
+                const totalVertices = Math.pow(2, dimension);
+                
+                for (let i = 0; i < totalVertices; i++) {
+                    const vertex = [];
+                    for (let d = 0; d < dimension; d++) {
+                        // 生成-1或1的坐标
+                        const coord = (i & (1 << d)) ? 1 : -1;
+                        vertex.push(coord);
+                    }
+                    vertices.push(vertex);
+                }
+                
+                return vertices;
+            }
+            
+            // 投影到3D空间
+            function projectTo3D(vertex) {
+                // 维度映射
+                let x = vertex[0] || 0;
+                let y = vertex[1] || 0;
+                let z = vertex[2] || 0;
+                
+                // 处理更高维度
+                if (currentDimension > 3) {
+                    const w = vertex[3] || 0;
+                    
+                    // 应用高维旋转
+                    const rotated = applyHighDRotation([x, y, z, w]);
+                    x = rotated[0];
+                    y = rotated[1];
+                    z = rotated[2];
+                    
+                    // 对于更高维度，添加透视效果
+                    if (currentDimension > 4) {
+                        const v = vertex[4] || 0;
+                        // 将v维度映射到缩放效果
+                        const scale = 1.0 + v * projectionDepth * 0.5;
+                        x *= scale;
+                        y *= scale;
+                        z *= scale;
+                    }
+                }
+                
+                return [x * 3, y * 3, z * 3];
+            }
+            
+            // 应用高维旋转
+            function applyHighDRotation(vertex) {
+                const [x, y, z, w] = vertex;
+                
+                // 应用XY平面旋转
+                const xyAngle = rotationState.xy.angle * Math.PI / 180;
+                const xyX = x * Math.cos(xyAngle) - y * Math.sin(xyAngle);
+                const xyY = x * Math.sin(xyAngle) + y * Math.cos(xyAngle);
+                
+                // 应用ZW平面旋转
+                const zwAngle = rotationState.zw.angle * Math.PI / 180;
+                const zwZ = z * Math.cos(zwAngle) - w * Math.sin(zwAngle);
+                const zwW = z * Math.sin(zwAngle) + w * Math.cos(zwAngle);
+                
+                // 应用XW平面旋转
+                const xwAngle = rotationState.xw.angle * Math.PI / 180;
+                const xwX = xyX * Math.cos(xwAngle) - zwW * Math.sin(xwAngle);
+                const xwW = xyX * Math.sin(xwAngle) + zwW * Math.cos(xwAngle);
+                
+                return [xwX, xyY, zwZ, xwW];
+            }
+            
+            // 创建边
+            function createEdges(vertices) {
+                const edgeMaterial = new THREE.LineBasicMaterial({ 
+                    color: 0x64b5f6, 
+                    transparent: true,
+                    opacity: 0.4,
+                    linewidth: 1
+                });
+                
+                // 连接相邻的顶点
+                vertices.forEach((v1, i) => {
+                    vertices.forEach((v2, j) => {
+                        if (i < j) {
+                            // 检查是否只在一个坐标上不同
+                            let diffCount = 0;
+                            for (let d = 0; d < currentDimension; d++) {
+                                if (v1[d] !== v2[d]) {
+                                    diffCount++;
+                                }
+                            }
+                            
+                            if (diffCount === 1) {
+                                // 投影到3D
+                                const p1 = projectTo3D(v1);
+                                const p2 = projectTo3D(v2);
+                                
+                                const points = [
+                                    new THREE.Vector3(p1[0], p1[1], p1[2]),
+                                    new THREE.Vector3(p2[0], p2[1], p2[2])
+                                ];
+                                
+                                const geometry = new THREE.BufferGeometry().setFromPoints(points);
+                                const line = new THREE.Line(geometry, edgeMaterial);
+                                hypercube.add(line);
+                            }
+                        }
+                    });
+                });
+            }
+            
+            // 根据位置获取颜色
+            function getColorForDimension(vertex) {
+                // 颜色映射
+                const colors = [
+                    0xFF5252, // 红色 - X
+                    0x4CAF50, // 绿色 - Y
+                    0x2196F3, // 蓝色 - Z
+                    0xFFC107, // 黄色 - W
+                    0x9C27B0  // 紫色 - V
+                ];
+                
+                // 找出哪个维度决定了这个顶点（基于位置）
+                for (let d = 0; d < currentDimension; d++) {
+                    if (Math.abs(vertex[d]) === 1) {
+                        return colors[d % colors.length];
+                    }
+                }
+                
+                return 0xffffff; // 默认白色
+            }
+            
+            // 更新魔方位置
+            function updateHypercube() {
+                if (!hypercube) return;
+                
+                // 遍历所有子对象
+                hypercube.children.forEach(child => {
+                    if (child.isMesh && child.userData.hyperCoords) {
+                        const projected = projectTo3D(child.userData.hyperCoords);
+                        child.position.set(projected[0], projected[1], projected[2]);
+                    }
+                });
+                
+                // 移除旧的边
+                const edges = hypercube.children.filter(child => child.isLine);
+                edges.forEach(edge => hypercube.remove(edge));
+                
+                // 创建新的边
+                createEdges(generateVertices(currentDimension));
+            }
+            
+            // 设置UI控制
+            function setupUIControls() {
+                // 维度控制
+                const dimensionSlider = document.getElementById('dimension');
+                const dimValue = document.getElementById('dim-value');
+                
+                dimensionSlider.addEventListener('input', () => {
+                    currentDimension = parseInt(dimensionSlider.value);
+                    dimValue.textContent = currentDimension + 'D';
+                    createHypercube();
+                    updateStatus("已切换到 " + currentDimension + "D 魔方");
+                });
+                
+                // 投影深度控制
+                const depthSlider = document.getElementById('depth');
+                const depthValue = document.getElementById('depth-value');
+                
+                depthSlider.addEventListener('input', () => {
+                    projectionDepth = parseFloat(depthSlider.value);
+                    depthValue.textContent = projectionDepth.toFixed(2);
+                    updateHypercube();
+                });
+                
+                // 高维旋转控制
+                const xySlider = document.getElementById('xy-rotation');
+                const xyValue = document.getElementById('xy-value');
+                
+                xySlider.addEventListener('input', () => {
+                    rotationState.xy.angle = parseFloat(xySlider.value);
+                    xyValue.textContent = rotationState.xy.angle.toFixed(1) + '°';
+                    updateHypercube();
+                });
+                
+                const zwSlider = document.getElementById('zw-rotation');
+                const zwValue = document.getElementById('zw-value');
+                
+                zwSlider.addEventListener('input', () => {
+                    rotationState.zw.angle = parseFloat(zwSlider.value);
+                    zwValue.textContent = rotationState.zw.angle.toFixed(1) + '°';
+                    updateHypercube();
+                });
+                
+                const xwSlider = document.getElementById('xw-rotation');
+                const xwValue = document.getElementById('xw-value');
+                
+                xwSlider.addEventListener('input', () => {
+                    rotationState.xw.angle = parseFloat(xwSlider.value);
+                    xwValue.textContent = rotationState.xw.angle.toFixed(1) + '°';
+                    updateHypercube();
+                });
+                
+                // 旋转速度控制
+                const xySpeedSlider = document.getElementById('xy-speed');
+                const xySpeedValue = document.getElementById('xy-speed-value');
+                
+                xySpeedSlider.addEventListener('input', () => {
+                    rotationState.xy.speed = parseFloat(xySpeedSlider.value);
+                    xySpeedValue.textContent = rotationState.xy.speed.toFixed(1);
+                });
+                
+                const zwSpeedSlider = document.getElementById('zw-speed');
+                const zwSpeedValue = document.getElementById('zw-speed-value');
+                
+                zwSpeedSlider.addEventListener('input', () => {
+                    rotationState.zw.speed = parseFloat(zwSpeedSlider.value);
+                    zwSpeedValue.textContent = rotationState.zw.speed.toFixed(1);
+                });
+                
+                const xwSpeedSlider = document.getElementById('xw-speed');
+                const xwSpeedValue = document.getElementById('xw-speed-value');
+                
+                xwSpeedSlider.addEventListener('input', () => {
+                    rotationState.xw.speed = parseFloat(xwSpeedSlider.value);
+                    xwSpeedValue.textContent = rotationState.xw.speed.toFixed(1);
+                });
+                
+                // 自动旋转按钮
+                document.getElementById('auto-rotate-btn').addEventListener('click', function() {
+                    autoRotate = !autoRotate;
+                    this.textContent = autoRotate ? '停止自动旋转' : '启动自动旋转';
+                    updateStatus(autoRotate ? "自动旋转已启动" : "自动旋转已停止");
+                });
+                
+                // 重置旋转按钮
+                document.getElementById('reset-rotation-btn').addEventListener('click', () => {
+                    rotationState.xy.angle = 0;
+                    rotationState.zw.angle = 0;
+                    rotationState.xw.angle = 0;
+                    
+                    xySlider.value = 0;
+                    zwSlider.value = 0;
+                    xwSlider.value = 0;
+                    
+                    xyValue.textContent = '0.0°';
+                    zwValue.textContent = '0.0°';
+                    xwValue.textContent = '0.0°';
+                    
+                    updateHypercube();
+                    updateStatus("旋转已重置");
+                });
+                
+                // 重置视图按钮
+                document.getElementById('reset-view-btn').addEventListener('click', () => {
+                    camera.position.set(8, 8, 8);
+                    camera.lookAt(0, 0, 0);
+                    controls.reset();
+                    updateStatus("视图已重置");
+                });
+                
+                // 复杂旋转按钮
+                document.getElementById('complex-rotation-btn').addEventListener('click', function() {
+                    complexRotation = !complexRotation;
+                    this.textContent = complexRotation ? '简单模式' : '复杂模式';
+                    updateStatus(complexRotation ? "复杂旋转模式已启用" : "简单旋转模式已启用");
+                });
+                
+                // 预设按钮
+                document.querySelectorAll('.preset-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const preset = this.dataset.preset;
+                        applyPreset(preset);
+                    });
+                });
+            }
+            
+            // 应用预设
+            function applyPreset(preset) {
+                switch(preset) {
+                    case 'basic':
+                        rotationState.xy.speed = 0.5;
+                        rotationState.zw.speed = 0.0;
+                        rotationState.xw.speed = 0.0;
+                        break;
+                    case 'double':
+                        rotationState.xy.speed = 0.5;
+                        rotationState.zw.speed = 0.7;
+                        rotationState.xw.speed = 0.0;
+                        break;
+                    case 'complex':
+                        rotationState.xy.speed = 0.5;
+                        rotationState.zw.speed = 0.7;
+                        rotationState.xw.speed = 0.3;
+                        complexRotation = true;
+                        document.getElementById('complex-rotation-btn').textContent = '简单模式';
+                        break;
+                }
+                
+                // 更新UI
+                document.getElementById('xy-speed').value = rotationState.xy.speed;
+                document.getElementById('zw-speed').value = rotationState.zw.speed;
+                document.getElementById('xw-speed').value = rotationState.xw.speed;
+                
+                document.getElementById('xy-speed-value').textContent = rotationState.xy.speed.toFixed(1);
+                document.getElementById('zw-speed-value').textContent = rotationState.zw.speed.toFixed(1);
+                document.getElementById('xw-speed-value').textContent = rotationState.xw.speed.toFixed(1);
+                
+                if (!autoRotate) {
+                    autoRotate = true;
+                    document.getElementById('auto-rotate-btn').textContent = '停止自动旋转';
+                }
+                
+                updateStatus("已应用预设: " + preset);
+            }
+            
+            // 更新状态
+            function updateStatus(text) {
+                document.getElementById('status-text').textContent = text;
+            }
+            
+            // 窗口大小调整
+            function onWindowResize() {
+                const container = document.getElementById('canvas-container');
+                camera.aspect = container.clientWidth / container.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(container.clientWidth, container.clientHeight);
+            }
+            
+            // 动画循环
+            function animate() {
+                requestAnimationFrame(animate);
+                
+                // 自动旋转
+                if (autoRotate) {
+                    rotationState.xy.angle += rotationState.xy.speed;
+                    if (complexRotation) {
+                        rotationState.zw.angle += rotationState.zw.speed;
+                        rotationState.xw.angle += rotationState.xw.speed;
+                    }
+                    
+                    // 更新滑块显示
+                    document.getElementById('xy-rotation').value = rotationState.xy.angle % 360;
+                    document.getElementById('zw-rotation').value = rotationState.zw.angle % 360;
+                    document.getElementById('xw-rotation').value = rotationState.xw.angle % 360;
+                    
+                    document.getElementById('xy-value').textContent = (rotationState.xy.angle % 360).toFixed(1) + '°';
+                    document.getElementById('zw-value').textContent = (rotationState.zw.angle % 360).toFixed(1) + '°';
+                    document.getElementById('xw-value').textContent = (rotationState.xw.angle % 360).toFixed(1) + '°';
+                    
+                    updateHypercube();
+                }
+                
+                controls.update();
+                renderer.render(scene, camera);
+            }
+            
+            // 初始化应用
+            init();
+            updateStatus("系统已就绪，请开始探索高维空间！");
+        });
+    </script>
+</body>
+</html>
