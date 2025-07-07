@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <ctime>
 #include <unordered_map>
+#include <unordered_set>
 #include <queue>
 #include <algorithm>
 #include <thread>
@@ -159,57 +160,63 @@ void compute_generation(GameState &state) {
     
     // 仅存储需要更新的细胞
     vector<tuple<int, int, bool>> updates;
-    unordered_map<int, unordered_map<int, bool>> processed_chunks;
+    unordered_set<long> positions_to_check;
     
     // 只处理有活细胞的块及其邻居
     for (auto& [chunk_y, row] : state.world) {
         for (auto& [chunk_x, chunk] : row) {
             if (chunk == nullptr) continue;
             
-            // 处理当前块及其周围8个块
-            for (int dy = -1; dy <= 1; dy++) {
-                for (int dx = -1; dx <= 1; dx++) {
-                    int cy = chunk_y + dy;
-                    int cx = chunk_x + dx;
+            for (int y = 0; y < CHUNK_SIZE; y++) {
+                for (int x = 0; x < CHUNK_SIZE; x++) {
+                    if (!chunk->cells[y][x]) continue;
                     
-                    // 避免重复处理
-                    if (processed_chunks.find(cy) != processed_chunks.end() && 
-                        processed_chunks[cy].find(cx) != processed_chunks[cy].end()) {
-                        continue;
-                    }
+                    int world_x = chunk_x * CHUNK_SIZE + x;
+                    int world_y = chunk_y * CHUNK_SIZE + y;
                     
-                    processed_chunks[cy][cx] = true;
-                    
-                    // 处理块中的每个细胞
-                    for (int y = 0; y < CHUNK_SIZE; y++) {
-                        for (int x = 0; x < CHUNK_SIZE; x++) {
-                            int world_x = cx * CHUNK_SIZE + x;
-                            int world_y = cy * CHUNK_SIZE + y;
-                            
-                            // 计算邻居数量
-                            int neighbors = 0;
-                            for (int ny = -1; ny <= 1; ny++) {
-                                for (int nx = -1; nx <= 1; nx++) {
-                                    if (nx == 0 && ny == 0) continue;
-                                    if (peek_cell(state, world_x + nx, world_y + ny)) {
-                                        neighbors++;
-                                    }
-                                }
-                            }
-                            
-                            bool current = peek_cell(state, world_x, world_y);
-                            if (current) {
-                                if (neighbors < 2 || neighbors > 3) {
-                                    updates.push_back({world_x, world_y, false});
-                                }
-                            } else {
-                                if (neighbors == 3) {
-                                    updates.push_back({world_x, world_y, true});
-                                }
-                            }
+                    // 添加活细胞及其所有邻居
+                    for (int dy = -1; dy <= 1; dy++) {
+                        for (int dx = -1; dx <= 1; dx++) {
+                            int nx = world_x + dx;
+                            int ny = world_y + dy;
+                            long key = (static_cast<long>(nx) << 32) | (ny & 0xFFFFFFFFL);
+                            positions_to_check.insert(key);
                         }
                     }
                 }
+            }
+        }
+    }
+    
+    // 第二步：只处理需要检查的位置
+    for (long key : positions_to_check) {
+        int world_x = static_cast<int>(key >> 32);
+        int world_y = static_cast<int>(key & 0xFFFFFFFFL);
+        
+        // 计算邻居数量
+        int neighbors = 0;
+        for (int dy = -1; dy <= 1; dy++) {
+            for (int dx = -1; dx <= 1; dx++) {
+                if (dx == 0 && dy == 0) continue;
+                
+                int nx = world_x + dx;
+                int ny = world_y + dy;
+                
+                // 检查边界外的细胞
+                if (peek_cell(state, nx, ny)) {
+                    neighbors++;
+                }
+            }
+        }
+        
+        bool current = peek_cell(state, world_x, world_y);
+        if (current) {
+            if (neighbors < 2 || neighbors > 3) {
+                updates.push_back({world_x, world_y, false});
+            }
+        } else {
+            if (neighbors == 3) {
+                updates.push_back({world_x, world_y, true});
             }
         }
     }
@@ -590,6 +597,7 @@ int main(int argc, char** argv) {
     keypad(stdscr, TRUE);
     curs_set(0);
     timeout(0);
+    set_escdelay(25); // 设置ESC键延迟为25ms
     start_color(); // 启用颜色支持
     use_default_colors(); // 使用终端默认颜色
     
