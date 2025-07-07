@@ -142,11 +142,14 @@ int main() {
         int old_y = player.y;
         
         // 计算新位置
+        int new_x = old_x;
+        int new_y = old_y;
+        
         switch (ch) {
-            case KEY_UP:    player.y--; break;
-            case KEY_DOWN:  player.y++; break;
-            case KEY_LEFT:  player.x--; break;
-            case KEY_RIGHT: player.x++; break;
+            case KEY_UP:    new_y--; break;
+            case KEY_DOWN:  new_y++; break;
+            case KEY_LEFT:  new_x--; break;
+            case KEY_RIGHT: new_x++; break;
             default: 
                 // 无有效输入时继续循环
                 usleep(10000);
@@ -154,10 +157,17 @@ int main() {
         }
         
         // 边界检查
-        if (player.x < 0) player.x = 0;
-        if (player.x >= MAZE_COLS) player.x = MAZE_COLS - 1;
-        if (player.y < 0) player.y = 0;
-        if (player.y >= MAZE_ROWS) player.y = MAZE_ROWS - 1;
+        if (new_x < 0) new_x = 0;
+        if (new_x >= MAZE_COLS) new_x = MAZE_COLS - 1;
+        if (new_y < 0) new_y = 0;
+        if (new_y >= MAZE_ROWS) new_y = MAZE_ROWS - 1;
+        
+        // 检查移动是否有效（不能穿越墙壁）
+        if (maze[new_y][new_x] != '#') {
+            // 只有目标位置不是墙壁才允许移动
+            player.x = new_x;
+            player.y = new_y;
+        }
         
         // 检查胜利条件（到达出口）
         if (maze[player.y][player.x] == 'E') {
@@ -168,9 +178,11 @@ int main() {
             refresh();
             usleep(2000000);
             game_running = false;
+            // 退出循环，不再重新生成迷宫
+            break;
         }
         
-        // 每次移动后重新生成迷宫
+        // 每次移动后重新生成迷宫（除非已经胜利）
         maze = generate_maze();
         
         // 确保玩家位置是空地
