@@ -16,6 +16,7 @@
 #include <cstring>
 #include <utility>
 #include <cstdint>
+#include <climits>
 using namespace std;
 
 // 架构特定配置
@@ -44,55 +45,34 @@ struct Chunk {
     bool dirty = true;
     int live_count = 0; // 当前块的活细胞计数
 
-#ifdef ARM_OPTIMIZED
-    // ARM特定优化：使用位域操作加速
+    // 修复整数溢出问题
     inline bool get_bit(int x, int y) const {
-        int pos = y * CHUNK_SIZE + x;
-        return (bitmap[pos / BITS_PER_UNIT] >> (pos % BITS_PER_UNIT)) & 1;
+        // 使用int64_t防止溢出
+        int64_t pos = static_cast<int64_t>(y) * CHUNK_SIZE + x;
+        if (pos < 0 || pos >= CHUNK_SIZE * CHUNK_SIZE) return false;
+        size_t idx = static_cast<size_t>(pos) / BITS_PER_UNIT;
+        return (bitmap[idx] >> (pos % BITS_PER_UNIT)) & 1;
     }
     
     inline void set_bit(int x, int y, bool value) {
-        int pos = y * CHUNK_SIZE + x;
-        int idx = pos / BITS_PER_UNIT;
+        // 使用int64_t防止溢出
+        int64_t pos = static_cast<int64_t>(y) * CHUNK_SIZE + x;
+        if (pos < 0 || pos >= CHUNK_SIZE * CHUNK_SIZE) return;
+        size_t idx = static_cast<size_t>(pos) / BITS_PER_UNIT;
         BitmapType mask = static_cast<BitmapType>(1) << (pos % BITS_PER_UNIT);
         
-        if (value) {
-            if (!(bitmap[idx] & mask)) {
-                bitmap[idx] |= mask;
-                live_count++;
-            }
-        } else {
-            if (bitmap[idx] & mask) {
-                bitmap[idx] &= ~mask;
-                live_count--;
-            }
-        }
-    }
-#else
-    // 通用位操作实现
-    inline bool get_bit(int x, int y) const {
-        int pos = y * CHUNK_SIZE + x;
-        return (bitmap[pos / BITS_PER_UNIT] >> (pos % BITS_PER_UNIT)) & 1;
-    }
-    
-    inline void set_bit(int x, int y, bool value) {
-        int pos = y * CHUNK_SIZE + x;
-        int idx = pos / BITS_PER_UNIT;
-        BitmapType mask = static_cast<BitmapType>(1) << (pos % BITS_PER_UNIT);
+        bool current = (bitmap[idx] & mask) != 0;
+        if (current == value) return;
         
         if (value) {
-            if (!(bitmap[idx] & mask)) {
-                bitmap[idx] |= mask;
-                live_count++;
-            }
+            bitmap[idx] |= mask;
+            live_count++;
         } else {
-            if (bitmap[idx] & mask) {
-                bitmap[idx] &= ~mask;
-                live_count--;
-            }
+            bitmap[idx] &= ~mask;
+            live_count--;
         }
+        dirty = true;
     }
-#endif
 };
 
 enum Mode { DESIGN, COMMAND, PLAY };
@@ -124,9 +104,24 @@ struct GameState {
     // 重用数据结构减少内存分配
     vector<pair<int, int>> positions_to_check;
     vector<tuple<int, int, bool>> updates;
+    
+    // 析构函数释放内存
+    ~GameState() {
+        for (auto& [y, row] : world) {
+            for (auto& [x, chunk] : row) {
+                delete chunk;
+            }
+        }
+    }
 };
 
 Chunk* get_chunk_if_exists(GameState& state, int world_x, int world_y) {
+    // 防止极端坐标值
+    if (world_x < INT_MIN/2 || world_x > INT_MAX/2 || 
+        world_y < INT_MIN/2 || world_y > INT_MAX/2) {
+        return nullptr;
+    }
+    
     int chunk_x = world_x / CHUNK_SIZE;
     int chunk_y = world_y / CHUNK_SIZE;
     
@@ -138,6 +133,12 @@ Chunk* get_chunk_if_exists(GameState& state, int world_x, int world_y) {
 }
 
 Chunk* get_chunk(GameState& state, int world_x, int world_y) {
+    // 防止极端坐标值
+    if (world_x < INT_MIN/2 || world_x > INT_MAX/2 || 
+        world_y < INT_MIN/2 || world_y > INT_MAX/2) {
+        return nullptr;
+    }
+    
     int chunk_x = world_x / CHUNK_SIZE;
     int chunk_y = world_y / CHUNK_SIZE;
     
@@ -151,23 +152,43 @@ Chunk* get_chunk(GameState& state, int world_x, int world_y) {
 }
 
 bool peek_cell(GameState& state, int world_x, int world_y) {
+    // 显式检查坐标是否在有效范围内
+    if (world_x < INT_MIN + CHUNK_SIZE || world_x > INT_MAX - CHUNK_SIZE ||
+        world_y < INT_MIN + CHUNK_SIZE || world_y > INT_MAX - CHUNK_SIZE) {
+        return false;
+    }
+    
     Chunk* chunk = get_chunk_if_exists(state, world_x, world_y);
     if (!chunk) return false;
     
     int local_x = world_x % CHUNK_SIZE;
     int local_y = world_y % CHUNK_SIZE;
+    
+    // 处理负数坐标的取模
+    if (local_x < 0) local_x += CHUNK_SIZE;
+    if (local_y < 0) local_y += CHUNK_SIZE;
+    
     return chunk->get_bit(local_x, local_y);
 }
 
 void set_cell(GameState& state, int world_x, int world_y, bool alive) {
+    // 防止极端坐标值
+    if (world_x < INT_MIN/2 || world_x > INT_MAX/2 || 
+        world_y < INT_MIN/2 || world_y > INT_MAX/2) {
+        return;
+    }
+    
     Chunk* chunk = get_chunk(state, world_x, world_y);
     int local_x = world_x % CHUNK_SIZE;
     int local_y = world_y % CHUNK_SIZE;
     
+    // 处理负数坐标的取模
+    if (local_x < 0) local_x += CHUNK_SIZE;
+    if (local_y < 0) local_y += CHUNK_SIZE;
+    
     bool current = chunk->get_bit(local_x, local_y);
     if (current != alive) {
         chunk->set_bit(local_x, local_y, alive);
-        chunk->dirty = true;
         
         if (alive) state.live_cell_count++;
         else state.live_cell_count--;
@@ -387,8 +408,8 @@ void draw_all_visible_chunks(GameState &state) {
     
     int min_chunk_x = min_world_x / CHUNK_SIZE;
     int min_chunk_y = min_world_y / CHUNK_SIZE;
-    int max_chunk_x = max_world_x / CHUNK_SIZE + 1;
-    int max_chunk_y = max_world_y / CHUNK_SIZE + 1;
+    int max_chunk_x = (max_world_x + CHUNK_SIZE - 1) / CHUNK_SIZE;
+    int max_chunk_y = (max_world_y + CHUNK_SIZE - 1) / CHUNK_SIZE;
     
     for (int chunk_y = min_chunk_y; chunk_y <= max_chunk_y; chunk_y++) {
         if (state.world.find(chunk_y) == state.world.end()) continue;
@@ -647,12 +668,6 @@ int main(int argc, char** argv) {
             case DESIGN: design_mode(state); break;
             case COMMAND: command_mode(state); break;
             case PLAY: play_mode(state); break;
-        }
-    }
-    
-    for (auto& [y, row] : state.world) {
-        for (auto& [x, chunk] : row) {
-            delete chunk;
         }
     }
     
