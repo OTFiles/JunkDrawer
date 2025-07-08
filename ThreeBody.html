@@ -1,0 +1,1438 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D多体运动模拟器</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #e6e6e6;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        
+        .container {
+            display: flex;
+            height: 100vh;
+            padding: 20px;
+            gap: 20px;
+        }
+        
+        /* 3D场景容器 */
+        .scene-container {
+            flex: 3;
+            background: rgba(10, 15, 30, 0.7);
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+            position: relative;
+        }
+        
+        #scene {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .scene-title {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 24px;
+            font-weight: bold;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 8px 16px;
+            border-radius: 8px;
+            color: #4dccbd;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .mode-indicator {
+            font-size: 14px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            background: rgba(77, 204, 189, 0.2);
+        }
+        
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 15px;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 12px 20px;
+            border-radius: 50px;
+            z-index: 10;
+        }
+        
+        .control-btn {
+            background: #4dccbd;
+            color: #16213e;
+            border: none;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .control-btn:hover {
+            background: #3bb4a5;
+            transform: scale(1.1);
+        }
+        
+        .time-display {
+            display: flex;
+            align-items: center;
+            font-size: 18px;
+            gap: 10px;
+            background: rgba(77, 204, 189, 0.2);
+            padding: 5px 15px;
+            border-radius: 30px;
+        }
+        
+        /* 设置面板 */
+        .settings-panel {
+            flex: 1;
+            background: rgba(20, 30, 48, 0.8);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+            min-width: 350px;
+            overflow-y: auto;
+            max-height: 100%;
+        }
+        
+        .panel-title {
+            font-size: 24px;
+            text-align: center;
+            margin-bottom: 15px;
+            color: #4dccbd;
+            font-weight: bold;
+            border-bottom: 2px solid #4dccbd;
+            padding-bottom: 10px;
+        }
+        
+        .section {
+            background: rgba(10, 20, 35, 0.6);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        .section-title {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #4dccbd;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 14px;
+            color: #9db4c0;
+        }
+        
+        input, select, button {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #2a3a5a;
+            background: rgba(15, 25, 45, 0.7);
+            color: #e6e6e6;
+            font-size: 14px;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #4dccbd, #3bb4a5);
+            color: #0a1a2a;
+            border: none;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 5px;
+        }
+        
+        button:hover {
+            background: linear-gradient(135deg, #3bb4a5, #2a9d8f);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(59, 180, 165, 0.4);
+        }
+        
+        .delete-btn {
+            background: linear-gradient(135deg, #e63946, #d63031);
+        }
+        
+        .delete-btn:hover {
+            background: linear-gradient(135deg, #d63031, #c22525);
+            box-shadow: 0 5px 15px rgba(230, 57, 70, 0.4);
+        }
+        
+        .focus-btn {
+            background: linear-gradient(135deg, #4cc9f0, #3a86ff);
+        }
+        
+        .focus-btn:hover {
+            background: linear-gradient(135deg, #3a86ff, #4361ee);
+            box-shadow: 0 5px 15px rgba(76, 201, 240, 0.4);
+        }
+        
+        .lock-btn {
+            background: linear-gradient(135deg, #f72585, #b5179e);
+        }
+        
+        .lock-btn:hover {
+            background: linear-gradient(135deg, #b5179e, #7209b7);
+            box-shadow: 0 5px 15px rgba(247, 37, 133, 0.4);
+        }
+        
+        .bodies-list {
+            max-height: 300px;
+            overflow-y: auto;
+            border-radius: 8px;
+            background: rgba(15, 25, 45, 0.5);
+            padding: 10px;
+        }
+        
+        .body-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            margin-bottom: 8px;
+            background: rgba(30, 45, 70, 0.5);
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+        
+        .body-item:hover {
+            background: rgba(40, 60, 90, 0.7);
+            transform: translateX(5px);
+        }
+        
+        .body-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 1;
+        }
+        
+        .body-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+        }
+        
+        .body-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .action-btn {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 14px;
+            padding: 0;
+        }
+        
+        .info-box {
+            background: rgba(77, 204, 189, 0.1);
+            border-left: 4px solid #4dccbd;
+            padding: 12px;
+            border-radius: 0 8px 8px 0;
+            margin-top: 15px;
+            font-size: 14px;
+        }
+        
+        .instructions {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 14px;
+            max-width: 300px;
+            z-index: 10;
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 1000px) {
+            .container {
+                flex-direction: column;
+                height: auto;
+            }
+            
+            .settings-panel {
+                min-width: auto;
+            }
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(77, 204, 189, 0.9);
+            color: #0a1a2a;
+            padding: 15px 25px;
+            border-radius: 8px;
+            font-weight: bold;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            transform: translateX(150%);
+            transition: transform 0.4s ease;
+            z-index: 100;
+        }
+        
+        .notification.show {
+            transform: translateX(0);
+        }
+        
+        .lock-indicator {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(247, 37, 133, 0.2);
+            color: #f72585;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            z-index: 10;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(247, 37, 133, 0.3);
+        }
+        
+        .lock-icon {
+            font-size: 18px;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+        
+        .view-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .view-btn {
+            flex: 1;
+            min-width: 120px;
+            background: linear-gradient(135deg, #4dccbd, #3bb4a5);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 10px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .view-btn.lock {
+            background: linear-gradient(135deg, #f72585, #b5179e);
+        }
+        
+        .view-btn.lock.locked {
+            background: linear-gradient(135deg, #b5179e, #7209b7);
+        }
+        
+        .view-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(59, 180, 165, 0.4);
+        }
+        
+        .view-btn.lock:hover {
+            box-shadow: 0 5px 15px rgba(247, 37, 133, 0.4);
+        }
+        
+        .toggle-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .toggle-btn .icon {
+            font-size: 18px;
+        }
+        
+        .lock-mode-selector {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 10px;
+            background: rgba(15, 25, 45, 0.7);
+            border-radius: 8px;
+            padding: 10px;
+        }
+        
+        .lock-option {
+            padding: 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
+        }
+        
+        .lock-option:hover {
+            background: rgba(247, 37, 133, 0.2);
+        }
+        
+        .lock-option.active {
+            background: rgba(247, 37, 133, 0.4);
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 3D场景容器 -->
+        <div class="scene-container">
+            <div class="scene-title">
+                <span>多体运动模拟</span>
+                <span class="mode-indicator" id="mode-indicator">普通模式</span>
+            </div>
+            
+            <div class="lock-indicator" id="lock-indicator" style="display: none;">
+                <span class="lock-icon">🔒</span>
+                <span id="lock-status">未锁定</span>
+            </div>
+            
+            <div id="scene"></div>
+            <div class="controls">
+                <button class="control-btn" id="play-toggle-btn">
+                    <div class="toggle-btn">
+                        <span class="icon">▶</span>
+                    </div>
+                </button>
+                <button class="control-btn" id="reset-btn">↺</button>
+                <div class="time-display">
+                    <span>时间:</span>
+                    <span id="time">0.0s</span>
+                </div>
+            </div>
+            <div class="instructions">
+                <div>鼠标左键: 旋转视角</div>
+                <div>鼠标滚轮: 缩放场景</div>
+                <div>鼠标右键: 平移场景</div>
+                <div>双击天体: 聚焦该天体</div>
+                <div>天体锁定: 持续跟踪特定天体</div>
+            </div>
+        </div>
+        
+        <!-- 设置面板 -->
+        <div class="settings-panel">
+            <h2 class="panel-title">天体设置</h2>
+            
+            <div class="section">
+                <h3 class="section-title">模拟模式</h3>
+                <div class="form-group">
+                    <select id="simulation-mode">
+                        <option value="normal">普通模式 (真实物理)</option>
+                        <option value="modified">修改模式 (稳定观赏)</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h3 class="section-title">添加新天体</h3>
+                <div class="form-group">
+                    <label for="body-name">名称</label>
+                    <input type="text" id="body-name" placeholder="例如：地球" value="天体1">
+                </div>
+                
+                <div class="form-group">
+                    <label for="body-mass">质量 (10²⁴ kg)</label>
+                    <input type="range" id="body-mass" min="0.1" max="100" step="0.1" value="5.97">
+                    <span id="mass-value">5.97</span>
+                </div>
+                
+                <div class="form-group">
+                    <label for="body-color">颜色</label>
+                    <input type="color" id="body-color" value="#4dccbd">
+                </div>
+                
+                <div class="form-group">
+                    <label for="body-position">初始位置 (x, y, z)</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="number" id="pos-x" placeholder="X" value="0">
+                        <input type="number" id="pos-y" placeholder="Y" value="50">
+                        <input type="number" id="pos-z" placeholder="Z" value="0">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="body-velocity">初始速度 (x, y, z)</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="number" id="vel-x" placeholder="X" value="0">
+                        <input type="number" id="vel-y" placeholder="Y" value="0">
+                        <input type="number" id="vel-z" placeholder="Z" value="0">
+                    </div>
+                </div>
+                
+                <button id="add-body">添加天体</button>
+                <div class="info-box">
+                    提示：所有天体的大小固定为10个单位，以点状显示
+                </div>
+            </div>
+            
+            <div class="section">
+                <h3 class="section-title">天体列表</h3>
+                <div class="bodies-list" id="bodies-list">
+                    <!-- 天体列表将通过JS动态生成 -->
+                    <div class="info-box">
+                        添加天体后，它们将显示在这里。点击编辑或删除按钮进行管理。
+                    </div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h3 class="section-title">视图控制</h3>
+                <div class="view-controls">
+                    <button class="view-btn" id="focus-center">
+                        <span>聚焦中心</span>
+                    </button>
+                    <button class="view-btn" id="focus-all">
+                        <span>显示所有天体</span>
+                    </button>
+                    <button class="view-btn lock" id="lock-btn">
+                        <span>锁定天体</span>
+                    </button>
+                </div>
+                
+                <div class="lock-mode-selector" id="lock-mode-selector" style="display: none;">
+                    <div class="lock-option" data-mode="normal">普通锁定</div>
+                    <div class="lock-option" data-mode="spectate">观赏模式</div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h3 class="section-title">模拟设置</h3>
+                <div class="form-group">
+                    <label for="time-scale">时间缩放</label>
+                    <input type="range" id="time-scale" min="0.1" max="10" step="0.1" value="1">
+                    <span id="time-scale-value">1x</span>
+                </div>
+                
+                <div class="form-group">
+                    <label for="trail-length">轨迹长度</label>
+                    <input type="range" id="trail-length" min="10" max="500" step="10" value="100">
+                    <span id="trail-length-value">100</span>
+                </div>
+                
+                <div class="form-group">
+                    <label for="gravity-constant">引力常数 (G)</label>
+                    <input type="range" id="gravity-constant" min="1" max="100" step="1" value="10">
+                    <span id="gravity-value">10</span>
+                </div>
+                
+                <button id="reset-simulation">重置模拟</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="notification" id="notification">天体添加成功!</div>
+
+    <script>
+        // 初始化Three.js场景
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0a1429);
+        
+        // 创建相机
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth * 0.7 / (window.innerHeight * 0.9), 0.1, 1000);
+        camera.position.set(0, 30, 70);
+        
+        // 创建渲染器
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth * 0.7, window.innerHeight * 0.9);
+        renderer.shadowMap.enabled = true;
+        document.getElementById('scene').appendChild(renderer.domElement);
+        
+        // 添加轨道控制器（实现旋转和缩放）
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true; // 启用阻尼（惯性滑动效果）
+        controls.dampingFactor = 0.05;
+        controls.screenSpacePanning = false;
+        controls.minDistance = 20;
+        controls.maxDistance = 200;
+        
+        // 添加光源
+        const ambientLight = new THREE.AmbientLight(0x333333);
+        scene.add(ambientLight);
+        
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+        directionalLight.position.set(5, 10, 7);
+        directionalLight.castShadow = true;
+        scene.add(directionalLight);
+        
+        // 添加坐标轴辅助
+        const axesHelper = new THREE.AxesHelper(20);
+        scene.add(axesHelper);
+        
+        // 添加网格地面
+        const gridHelper = new THREE.GridHelper(100, 20, 0x2a3a5a, 0x1a2a4a);
+        scene.add(gridHelper);
+        
+        // 天体数组
+        let bodies = [];
+        let trails = {};
+        let showTrails = true;
+        let lockedBody = null;
+        let lockMode = null; // 'normal' 或 'spectate'
+        let orbitEnabled = true;
+        
+        // 记录天体的初始状态
+        let initialStates = {};
+        
+        // 添加初始天体
+        function createInitialBodies() {
+            addBody({
+                name: "太阳",
+                mass: 1989.0,
+                color: "#ffaa33",
+                position: [0, 0, 0],
+                velocity: [0, 0, 0]
+            });
+            
+            addBody({
+                name: "地球",
+                mass: 5.97,
+                color: "#4dccbd",
+                position: [30, 0, 0],
+                velocity: [0, 0, 2.5]
+            });
+            
+            addBody({
+                name: "火星",
+                mass: 0.642,
+                color: "#e63946",
+                position: [0, 40, 0],
+                velocity: [-2.0, 0, 0]
+            });
+        }
+        
+        // 显示通知
+        function showNotification(message) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+        
+        // 添加天体函数
+        function addBody(bodyData) {
+            // 创建球体几何 - 固定大小为10
+            const geometry = new THREE.SphereGeometry(1, 32, 32);
+            const material = new THREE.MeshPhongMaterial({ 
+                color: bodyData.color,
+                emissive: new THREE.Color(bodyData.color).multiplyScalar(0.1)
+            });
+            
+            const body = new THREE.Mesh(geometry, material);
+            body.position.set(...bodyData.position);
+            body.castShadow = true;
+            
+            // 保存天体数据
+            body.userData = {
+                name: bodyData.name,
+                mass: bodyData.mass,
+                color: bodyData.color,
+                velocity: new THREE.Vector3(...bodyData.velocity),
+                acceleration: new THREE.Vector3(0, 0, 0),
+                trailPoints: [],
+                initialPosition: new THREE.Vector3(...bodyData.position),
+                initialVelocity: new THREE.Vector3(...bodyData.velocity)
+            };
+            
+            scene.add(body);
+            bodies.push(body);
+            
+            // 保存初始状态
+            initialStates[bodyData.name] = {
+                position: body.position.clone(),
+                velocity: body.userData.velocity.clone()
+            };
+            
+            // 初始化轨迹
+            trails[bodyData.name] = new THREE.Group();
+            scene.add(trails[bodyData.name]);
+            
+            // 添加双击聚焦事件
+            body.userData.element = body;
+            body.userData.focus = function() {
+                focusOnBody(this.element);
+            };
+            
+            // 显示通知
+            showNotification(`天体 "${bodyData.name}" 添加成功`);
+            
+            // 更新天体列表
+            updateBodiesList();
+            
+            // 聚焦到新添加的天体
+            focusOnBody(body);
+        }
+        
+        // 聚焦到指定天体
+        function focusOnBody(body) {
+            // 设置目标点为天体的位置
+            controls.target.copy(body.position);
+            
+            // 计算相机的新位置：在目标点的后上方
+            const offset = new THREE.Vector3(0, 30, 50);
+            const newPosition = body.position.clone().add(offset);
+            
+            // 平滑移动相机
+            animateCameraTo(newPosition, controls.target);
+            
+            showNotification(`已聚焦到: ${body.userData.name}`);
+        }
+        
+        // 相机平滑移动动画
+        function animateCameraTo(targetPosition, targetLookAt) {
+            const duration = 1000; // 动画时长（毫秒）
+            const startPosition = camera.position.clone();
+            const startLookAt = controls.target.clone();
+            const startTime = Date.now();
+            
+            function updateCamera() {
+                const elapsed = Date.now() - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                
+                // 使用缓动函数（easeOutCubic）
+                const easeProgress = 1 - Math.pow(1 - progress, 3);
+                
+                // 插值相机位置
+                camera.position.lerpVectors(startPosition, targetPosition, easeProgress);
+                
+                // 插值目标点
+                const currentLookAt = new THREE.Vector3();
+                currentLookAt.lerpVectors(startLookAt, targetLookAt, easeProgress);
+                controls.target.copy(currentLookAt);
+                controls.update();
+                
+                if (progress < 1) {
+                    requestAnimationFrame(updateCamera);
+                }
+            }
+            
+            updateCamera();
+        }
+        
+        // 聚焦到场景中心
+        function focusOnCenter() {
+            const center = new THREE.Vector3(0, 0, 0);
+            const offset = new THREE.Vector3(0, 30, 50);
+            const newPosition = center.clone().add(offset);
+            
+            animateCameraTo(newPosition, center);
+            showNotification("已聚焦到场景中心");
+        }
+        
+        // 显示所有天体（调整视图以包含所有天体）
+        function focusOnAllBodies() {
+            if (bodies.length === 0) return;
+            
+            const boundingBox = new THREE.Box3();
+            
+            // 计算包含所有天体的边界框
+            bodies.forEach(body => {
+                boundingBox.expandByPoint(body.position);
+            });
+            
+            const center = boundingBox.getCenter(new THREE.Vector3());
+            const size = boundingBox.getSize(new THREE.Vector3());
+            
+            // 计算相机距离，确保所有天体可见
+            const maxDim = Math.max(size.x, size.y, size.z);
+            const distance = maxDim * 1.5;
+            
+            // 设置相机位置
+            const direction = new THREE.Vector3(0, 1, 1).normalize();
+            const newPosition = center.clone().add(direction.multiplyScalar(distance));
+            
+            animateCameraTo(newPosition, center);
+            showNotification("已调整视图显示所有天体");
+        }
+        
+        // 更新天体列表UI
+        function updateBodiesList() {
+            const listContainer = document.getElementById('bodies-list');
+            listContainer.innerHTML = '';
+            
+            if (bodies.length === 0) {
+                listContainer.innerHTML = `
+                    <div class="info-box">
+                        当前没有天体。使用上面的表单添加新的天体。
+                    </div>
+                `;
+                return;
+            }
+            
+            bodies.forEach((body, index) => {
+                const bodyData = body.userData;
+                const bodyItem = document.createElement('div');
+                bodyItem.className = 'body-item';
+                bodyItem.innerHTML = `
+                    <div class="body-info">
+                        <div class="body-color" style="background: ${bodyData.color};"></div>
+                        <div>
+                            <div>${bodyData.name}</div>
+                            <div style="font-size: 12px; color: #9db4c0;">质量: ${bodyData.mass} ×10²⁴kg</div>
+                        </div>
+                    </div>
+                    <div class="body-actions">
+                        <button class="action-btn focus-btn" data-index="${index}" title="聚焦天体">👁️</button>
+                        <button class="action-btn lock-btn" data-index="${index}" title="锁定天体">🔒</button>
+                        <button class="action-btn edit-btn" data-index="${index}" title="编辑天体">✎</button>
+                        <button class="action-btn delete-btn" data-index="${index}" title="删除天体">✕</button>
+                    </div>
+                `;
+                listContainer.appendChild(bodyItem);
+            });
+            
+            // 添加事件监听器
+            document.querySelectorAll('.edit-btn').forEach(btn => {
+                btn.addEventListener('click', () => editBody(parseInt(btn.dataset.index)));
+            });
+            
+            document.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('click', () => deleteBody(parseInt(btn.dataset.index)));
+            });
+            
+            document.querySelectorAll('.focus-btn').forEach(btn => {
+                btn.addEventListener('click', () => focusOnBody(bodies[parseInt(btn.dataset.index)]));
+            });
+            
+            // 添加锁定按钮事件
+            document.querySelectorAll('.lock-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const body = bodies[parseInt(btn.dataset.index)];
+                    const selector = document.getElementById('lock-mode-selector');
+                    selector.style.display = 'flex';
+                    
+                    // 设置锁定模式选择器的点击事件
+                    document.querySelectorAll('.lock-option').forEach(option => {
+                        option.onclick = function() {
+                            lockBody(body, this.dataset.mode);
+                            selector.style.display = 'none';
+                        };
+                    });
+                });
+            });
+        }
+        
+        // 锁定天体
+        function lockBody(body, mode = 'normal') {
+            lockedBody = body;
+            lockMode = mode;
+            
+            // 更新锁定按钮样式
+            const lockBtn = document.getElementById('lock-btn');
+            lockBtn.classList.add('locked');
+            lockBtn.innerHTML = `<span>已锁定: ${body.userData.name}</span>`;
+            
+            // 显示锁定状态
+            const lockIndicator = document.getElementById('lock-indicator');
+            const lockStatus = document.getElementById('lock-status');
+            
+            lockIndicator.style.display = 'flex';
+            lockStatus.textContent = `锁定: ${body.userData.name} (${mode === 'normal' ? '普通模式' : '观赏模式'})`;
+            
+            // 如果是观赏模式，禁用轨道控制
+            if (lockMode === 'spectate') {
+                controls.enabled = false;
+                orbitEnabled = false;
+                showNotification(`已锁定天体: ${body.userData.name} (观赏模式)`);
+            } else {
+                showNotification(`已锁定天体: ${body.userData.name} (普通模式)`);
+            }
+        }
+        
+        // 解锁天体
+        function unlockBody() {
+            lockedBody = null;
+            lockMode = null;
+            
+            // 更新锁定按钮样式
+            const lockBtn = document.getElementById('lock-btn');
+            lockBtn.classList.remove('locked');
+            lockBtn.innerHTML = `<span>锁定天体</span>`;
+            
+            // 隐藏锁定状态
+            document.getElementById('lock-indicator').style.display = 'none';
+            
+            // 重新启用轨道控制
+            controls.enabled = true;
+            orbitEnabled = true;
+            
+            // 隐藏锁定模式选择器
+            document.getElementById('lock-mode-selector').style.display = 'none';
+            
+            showNotification("天体锁定已解除");
+        }
+        
+        // 更新相机位置以跟随锁定天体
+        function updateCameraForLockedBody() {
+            if (!lockedBody) return;
+            
+            if (lockMode === 'normal') {
+                // 普通模式：相机跟随天体但用户可操作
+                const offset = new THREE.Vector3(0, 30, 50);
+                const targetPosition = lockedBody.position.clone().add(offset);
+                
+                // 平滑移动相机
+                camera.position.lerp(targetPosition, 0.1);
+                controls.target.copy(lockedBody.position);
+            } else if (lockMode === 'spectate') {
+                // 观赏模式：自动调整相机位置以显示所有天体
+                adjustCameraForSpectateMode();
+            }
+        }
+        
+        // 调整相机位置以显示所有天体（观赏模式）
+        function adjustCameraForSpectateMode() {
+            if (bodies.length === 0) return;
+            
+            const boundingBox = new THREE.Box3();
+            
+            // 计算包含所有天体的边界框
+            bodies.forEach(body => {
+                boundingBox.expandByPoint(body.position);
+            });
+            
+            const center = boundingBox.getCenter(new THREE.Vector3());
+            const size = boundingBox.getSize(new THREE.Vector3());
+            
+            // 计算相机距离，确保所有天体可见
+            const maxDim = Math.max(size.x, size.y, size.z);
+            const distance = maxDim * 2.5;
+            
+            // 计算相机位置（在锁定天体的上方）
+            const offset = new THREE.Vector3(0, distance * 0.7, distance);
+            const targetPosition = lockedBody.position.clone().add(offset);
+            
+            // 平滑移动相机
+            camera.position.lerp(targetPosition, 0.05);
+            camera.lookAt(lockedBody.position);
+        }
+        
+        // 编辑天体
+        function editBody(index) {
+            const body = bodies[index];
+            const bodyData = body.userData;
+            
+            // 填充表单
+            document.getElementById('body-name').value = bodyData.name;
+            document.getElementById('body-mass').value = bodyData.mass;
+            document.getElementById('mass-value').textContent = bodyData.mass;
+            document.getElementById('body-color').value = bodyData.color;
+            
+            document.getElementById('pos-x').value = body.position.x;
+            document.getElementById('pos-y').value = body.position.y;
+            document.getElementById('pos-z').value = body.position.z;
+            
+            document.getElementById('vel-x').value = bodyData.velocity.x;
+            document.getElementById('vel-y').value = bodyData.velocity.y;
+            document.getElementById('vel-z').value = bodyData.velocity.z;
+            
+            // 更改按钮文本
+            const addButton = document.getElementById('add-body');
+            addButton.textContent = '更新天体';
+            addButton.dataset.editIndex = index;
+            
+            // 聚焦到编辑的天体
+            focusOnBody(body);
+        }
+        
+        // 删除天体
+        function deleteBody(index) {
+            const body = bodies[index];
+            
+            // 如果删除的是被锁定的天体，先解锁
+            if (lockedBody === body) {
+                unlockBody();
+            }
+            
+            scene.remove(body);
+            
+            // 移除轨迹
+            if (trails[body.userData.name]) {
+                scene.remove(trails[body.userData.name]);
+                delete trails[body.userData.name];
+            }
+            
+            // 从初始状态中删除
+            delete initialStates[body.userData.name];
+            
+            bodies.splice(index, 1);
+            showNotification(`天体 "${body.userData.name}" 已删除`);
+            updateBodiesList();
+        }
+        
+        // 添加轨迹点
+        function addTrailPoint(body) {
+            if (!showTrails || !trails[body.userData.name]) return;
+            
+            const trailGroup = trails[body.userData.name];
+            const trailGeometry = new THREE.BufferGeometry();
+            const material = new THREE.LineBasicMaterial({ 
+                color: body.userData.color,
+                transparent: true,
+                opacity: 0.7
+            });
+            
+            const points = [];
+            
+            // 添加现有轨迹点
+            body.userData.trailPoints.forEach(point => {
+                points.push(point.clone());
+            });
+            
+            // 添加新点
+            points.push(body.position.clone());
+            
+            // 限制轨迹长度
+            const trailLength = parseInt(document.getElementById('trail-length').value);
+            if (points.length > trailLength) {
+                points.shift();
+            }
+            
+            // 更新用户数据中的轨迹点
+            body.userData.trailPoints = points;
+            
+            // 清除旧轨迹
+            while (trailGroup.children.length > 0) {
+                trailGroup.remove(trailGroup.children[0]);
+            }
+            
+            // 创建新轨迹
+            if (points.length > 1) {
+                trailGeometry.setFromPoints(points);
+                const trail = new THREE.Line(trailGeometry, material);
+                trailGroup.add(trail);
+            }
+        }
+        
+        // 计算万有引力
+        function calculateGravity() {
+            const G = parseInt(document.getElementById('gravity-constant').value);
+            
+            // 重置加速度
+            bodies.forEach(body => {
+                body.userData.acceleration.set(0, 0, 0);
+            });
+            
+            // 计算每个天体对其他天体的引力
+            for (let i = 0; i < bodies.length; i++) {
+                for (let j = i + 1; j < bodies.length; j++) {
+                    const bodyA = bodies[i];
+                    const bodyB = bodies[j];
+                    
+                    // 计算距离
+                    const r = new THREE.Vector3();
+                    r.subVectors(bodyB.position, bodyA.position);
+                    const distance = r.length();
+                    
+                    // 避免距离过小导致的数值问题
+                    if (distance < 0.1) continue;
+                    
+                    // 计算引力大小 F = G * m1 * m2 / r^2
+                    const forceMagnitude = G * bodyA.userData.mass * bodyB.userData.mass / (distance * distance);
+                    
+                    // 计算单位方向向量
+                    r.normalize();
+                    
+                    // 计算加速度 a = F / m
+                    const accelerationA = r.clone().multiplyScalar(forceMagnitude / bodyA.userData.mass);
+                    const accelerationB = r.clone().multiplyScalar(-forceMagnitude / bodyB.userData.mass);
+                    
+                    // 应用加速度
+                    bodyA.userData.acceleration.add(accelerationA);
+                    bodyB.userData.acceleration.add(accelerationB);
+                }
+            }
+        }
+        
+        // 更新天体位置（修改模式）
+        function updatePositionsModified(deltaTime) {
+            const timeScale = parseFloat(document.getElementById('time-scale').value);
+            const scaledDeltaTime = deltaTime * timeScale;
+            
+            bodies.forEach(body => {
+                // 在修改模式下限制加速度和速度
+                const maxAcceleration = 2.0;
+                const maxVelocity = 5.0;
+                
+                // 限制加速度大小
+                if (body.userData.acceleration.length() > maxAcceleration) {
+                    body.userData.acceleration.normalize().multiplyScalar(maxAcceleration);
+                }
+                
+                // 更新速度: v = v + a * dt
+                body.userData.velocity.add(
+                    body.userData.acceleration.clone().multiplyScalar(scaledDeltaTime)
+                );
+                
+                // 限制速度大小
+                if (body.userData.velocity.length() > maxVelocity) {
+                    body.userData.velocity.normalize().multiplyScalar(maxVelocity);
+                }
+                
+                // 更新位置: p = p + v * dt
+                body.position.add(
+                    body.userData.velocity.clone().multiplyScalar(scaledDeltaTime)
+                );
+                
+                // 添加轨迹点
+                addTrailPoint(body);
+            });
+        }
+        
+        // 更新天体位置（普通模式）
+        function updatePositionsNormal(deltaTime) {
+            const timeScale = parseFloat(document.getElementById('time-scale').value);
+            const scaledDeltaTime = deltaTime * timeScale;
+            
+            bodies.forEach(body => {
+                // 更新速度: v = v + a * dt
+                body.userData.velocity.add(
+                    body.userData.acceleration.clone().multiplyScalar(scaledDeltaTime)
+                );
+                
+                // 更新位置: p = p + v * dt
+                body.position.add(
+                    body.userData.velocity.clone().multiplyScalar(scaledDeltaTime)
+                );
+                
+                // 添加轨迹点
+                addTrailPoint(body);
+            });
+        }
+        
+        // 初始化控制器
+        let isPlaying = false;
+        let lastTime = 0;
+        let elapsedTime = 0;
+        let simulationMode = 'normal';
+        
+        // 播放/暂停切换按钮
+        document.getElementById('play-toggle-btn').addEventListener('click', () => {
+            isPlaying = !isPlaying;
+            const playBtn = document.getElementById('play-toggle-btn');
+            
+            if (isPlaying) {
+                playBtn.innerHTML = '<div class="toggle-btn"><span class="icon">⏸</span></div>';
+                showNotification("模拟已开始");
+            } else {
+                playBtn.innerHTML = '<div class="toggle-btn"><span class="icon">▶</span></div>';
+                showNotification("模拟已暂停");
+            }
+            
+            lastTime = performance.now() / 1000;
+        });
+        
+        // 重置模拟状态（保留天体）
+        function resetSimulationState() {
+            // 重置每个天体到初始状态
+            bodies.forEach(body => {
+                const bodyData = body.userData;
+                const initialState = initialStates[bodyData.name];
+                
+                if (initialState) {
+                    body.position.copy(initialState.position);
+                    bodyData.velocity.copy(initialState.velocity);
+                    bodyData.acceleration.set(0, 0, 0);
+                    
+                    // 清除轨迹
+                    bodyData.trailPoints = [];
+                    if (trails[bodyData.name]) {
+                        scene.remove(trails[bodyData.name]);
+                        trails[bodyData.name] = new THREE.Group();
+                        scene.add(trails[bodyData.name]);
+                    }
+                }
+            });
+            
+            // 重置时间
+            elapsedTime = 0;
+            document.getElementById('time').textContent = '0.0s';
+            
+            // 解锁
+            unlockBody();
+            
+            // 重置相机位置
+            camera.position.set(0, 30, 70);
+            camera.lookAt(0, 0, 0);
+            controls.target.set(0, 0, 0);
+            controls.update();
+            
+            // 暂停模拟
+            isPlaying = false;
+            document.getElementById('play-toggle-btn').innerHTML = '<div class="toggle-btn"><span class="icon">▶</span></div>';
+            
+            showNotification("模拟已重置");
+        }
+        
+        document.getElementById('reset-btn').addEventListener('click', resetSimulationState);
+        document.getElementById('reset-simulation').addEventListener('click', resetSimulationState);
+        
+        // 聚焦控制
+        document.getElementById('focus-center').addEventListener('click', focusOnCenter);
+        document.getElementById('focus-all').addEventListener('click', focusOnAllBodies);
+        
+        // 锁定按钮
+        document.getElementById('lock-btn').addEventListener('click', function() {
+            if (lockedBody) {
+                unlockBody();
+            } else {
+                // 显示锁定模式选择器
+                const selector = document.getElementById('lock-mode-selector');
+                selector.style.display = selector.style.display === 'flex' ? 'none' : 'flex';
+            }
+        });
+        
+        // 锁定模式选择
+        document.querySelectorAll('.lock-option').forEach(option => {
+            option.addEventListener('click', function() {
+                const mode = this.dataset.mode;
+                const selector = document.getElementById('lock-mode-selector');
+                selector.style.display = 'none';
+                
+                // 显示天体列表供选择
+                const bodyList = document.getElementById('bodies-list');
+                bodyList.innerHTML = '';
+                
+                if (bodies.length === 0) {
+                    bodyList.innerHTML = `
+                        <div class="info-box">
+                            当前没有天体。请先添加天体。
+                        </div>
+                    `;
+                    return;
+                }
+                
+                // 添加标题
+                const title = document.createElement('div');
+                title.className = 'section-title';
+                title.textContent = `选择要锁定的天体 (${mode === 'normal' ? '普通模式' : '观赏模式'})`;
+                bodyList.appendChild(title);
+                
+                bodies.forEach((body, index) => {
+                    const bodyData = body.userData;
+                    const bodyItem = document.createElement('div');
+                    bodyItem.className = 'body-item';
+                    bodyItem.innerHTML = `
+                        <div class="body-info">
+                            <div class="body-color" style="background: ${bodyData.color};"></div>
+                            <div>
+                                <div>${bodyData.name}</div>
+                            </div>
+                        </div>
+                        <button class="action-btn lock-btn" data-index="${index}" data-mode="${mode}">锁定</button>
+                    `;
+                    bodyList.appendChild(bodyItem);
+                });
+                
+                // 添加取消按钮
+                const cancelBtn = document.createElement('button');
+                cancelBtn.textContent = '取消';
+                cancelBtn.style.marginTop = '10px';
+                cancelBtn.addEventListener('click', () => {
+                    updateBodiesList();
+                });
+                bodyList.appendChild(cancelBtn);
+                
+                // 添加锁定事件
+                document.querySelectorAll('.lock-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const index = parseInt(btn.dataset.index);
+                        const mode = btn.dataset.mode;
+                        lockBody(bodies[index], mode);
+                        updateBodiesList();
+                    });
+                });
+            });
+        });
+        
+        // 解锁功能
+        document.getElementById('lock-indicator').addEventListener('click', unlockBody);
+        
+        // 添加新天体
+        document.getElementById('add-body').addEventListener('click', () => {
+            const name = document.getElementById('body-name').value || `天体${bodies.length + 1}`;
+            const mass = parseFloat(document.getElementById('body-mass').value);
+            const color = document.getElementById('body-color').value;
+            
+            const position = [
+                parseFloat(document.getElementById('pos-x').value) || 0,
+                parseFloat(document.getElementById('pos-y').value) || 0,
+                parseFloat(document.getElementById('pos-z').value) || 0
+            ];
+            
+            const velocity = [
+                parseFloat(document.getElementById('vel-x').value) || 0,
+                parseFloat(document.getElementById('vel-y').value) || 0,
+                parseFloat(document.getElementById('vel-z').value) || 0
+            ];
+            
+            // 检查编辑模式
+            const addButton = document.getElementById('add-body');
+            if (addButton.dataset.editIndex !== undefined) {
+                const index = parseInt(addButton.dataset.editIndex);
+                deleteBody(index);
+                delete addButton.dataset.editIndex;
+                addButton.textContent = '添加天体';
+            }
+            
+            addBody({
+                name,
+                mass,
+                color,
+                position,
+                velocity
+            });
+        });
+        
+        // 更新滑块值显示
+        document.getElementById('body-mass').addEventListener('input', function() {
+            document.getElementById('mass-value').textContent = this.value;
+        });
+        
+        document.getElementById('time-scale').addEventListener('input', function() {
+            document.getElementById('time-scale-value').textContent = this.value + 'x';
+        });
+        
+        document.getElementById('trail-length').addEventListener('input', function() {
+            document.getElementById('trail-length-value').textContent = this.value;
+        });
+        
+        document.getElementById('gravity-constant').addEventListener('input', function() {
+            document.getElementById('gravity-value').textContent = this.value;
+        });
+        
+        // 模式切换
+        document.getElementById('simulation-mode').addEventListener('change', function() {
+            simulationMode = this.value;
+            document.getElementById('mode-indicator').textContent = 
+                simulationMode === 'normal' ? '普通模式' : '修改模式';
+            showNotification(`已切换到${simulationMode === 'normal' ? '普通模式' : '修改模式'}`);
+        });
+        
+        // 双击天体聚焦功能
+        renderer.domElement.addEventListener('dblclick', (event) => {
+            // 获取鼠标位置
+            const mouse = new THREE.Vector2();
+            mouse.x = (event.clientX / renderer.domElement.clientWidth) * 2 - 1;
+            mouse.y = - (event.clientY / renderer.domElement.clientHeight) * 2 + 1;
+            
+            // 设置射线投射器
+            const raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(mouse, camera);
+            
+            // 计算相交物体
+            const intersects = raycaster.intersectObjects(bodies);
+            
+            if (intersects.length > 0) {
+                // 聚焦到第一个被击中的天体
+                focusOnBody(intersects[0].object);
+            }
+        });
+        
+        // 动画循环
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            const currentTime = performance.now() / 1000;
+            const deltaTime = lastTime ? currentTime - lastTime : 0;
+            lastTime = currentTime;
+            
+            if (isPlaying) {
+                // 更新物理模拟
+                calculateGravity();
+                
+                if (simulationMode === 'normal') {
+                    updatePositionsNormal(deltaTime);
+                } else {
+                    updatePositionsModified(deltaTime);
+                }
+                
+                // 更新时间显示
+                elapsedTime += deltaTime * parseFloat(document.getElementById('time-scale').value);
+                document.getElementById('time').textContent = elapsedTime.toFixed(1) + 's';
+            }
+            
+            // 更新锁定天体的相机位置
+            if (lockedBody) {
+                updateCameraForLockedBody();
+            }
+            
+            // 更新轨道控制器
+            controls.enabled = orbitEnabled;
+            if (orbitEnabled) {
+                controls.update();
+            }
+            
+            renderer.render(scene, camera);
+        }
+        
+        // 窗口大小调整
+        window.addEventListener('resize', () => {
+            camera.aspect = (window.innerWidth * 0.7) / (window.innerHeight * 0.9);
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth * 0.7, window.innerHeight * 0.9);
+        });
+        
+        // 初始化
+        createInitialBodies();
+        animate();
+    </script>
+</body>
+</html>
