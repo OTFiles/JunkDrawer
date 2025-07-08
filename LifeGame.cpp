@@ -1,6 +1,6 @@
-// g++ -o LifeGame LifeGame.cpp -lncurses -pthread
-// ./LifeGame  =>  普通模式
-// ./LifeGame -z <预演算次数>  =>  在展示演算结果之前先演算100轮再展示
+// g++ -o LifeGame LifeGame.cpp -lncurses -pthread  // 通用编译
+// g++ -m32 -O3 -DARM_OPTIMIZED -o LifeGame32 LifeGame.cpp -lncurses -pthread  // 32位优化
+// g++ -O3 -DX64_OPTIMIZED -o LifeGame64 LifeGame.cpp -lncurses -pthread    // 64位优化
 
 #include <ncurses.h>
 #include <vector>
@@ -14,13 +14,85 @@
 #include <thread>
 #include <chrono>
 #include <cstring>
+#include <utility>
+#include <cstdint>
 using namespace std;
 
-// 使用稀疏矩阵存储活细胞，并优化邻居计算
-const int CHUNK_SIZE = 16; // 使用16x16的块来组织细胞
+// 架构特定配置
+#ifdef ARM_OPTIMIZED
+    // 32位ARM优化配置
+    const int CHUNK_SIZE = 32;
+    using BitmapType = uint32_t;
+    const int BITS_PER_UNIT = 32;
+#elif defined(X64_OPTIMIZED)
+    // 64位x86优化配置
+    const int CHUNK_SIZE = 64;
+    using BitmapType = uint64_t;
+    const int BITS_PER_UNIT = 64;
+#else
+    // 通用配置
+    const int CHUNK_SIZE = 32;
+    using BitmapType = uint32_t;
+    const int BITS_PER_UNIT = 32;
+#endif
+
+// 计算位图数组大小
+const int BITMAP_SIZE = (CHUNK_SIZE * CHUNK_SIZE + BITS_PER_UNIT - 1) / BITS_PER_UNIT;
+
 struct Chunk {
-    bool cells[CHUNK_SIZE][CHUNK_SIZE] = {{false}};
-    bool dirty = true; // 标记是否需要重绘
+    BitmapType bitmap[BITMAP_SIZE] = {0}; // 位图存储
+    bool dirty = true;
+    int live_count = 0; // 当前块的活细胞计数
+
+#ifdef ARM_OPTIMIZED
+    // ARM特定优化：使用位域操作加速
+    inline bool get_bit(int x, int y) const {
+        int pos = y * CHUNK_SIZE + x;
+        return (bitmap[pos / BITS_PER_UNIT] >> (pos % BITS_PER_UNIT)) & 1;
+    }
+    
+    inline void set_bit(int x, int y, bool value) {
+        int pos = y * CHUNK_SIZE + x;
+        int idx = pos / BITS_PER_UNIT;
+        BitmapType mask = static_cast<BitmapType>(1) << (pos % BITS_PER_UNIT);
+        
+        if (value) {
+            if (!(bitmap[idx] & mask)) {
+                bitmap[idx] |= mask;
+                live_count++;
+            }
+        } else {
+            if (bitmap[idx] & mask) {
+                bitmap[idx] &= ~mask;
+                live_count--;
+            }
+        }
+    }
+#else
+    // 通用位操作实现
+    inline bool get_bit(int x, int y) const {
+        int pos = y * CHUNK_SIZE + x;
+        return (bitmap[pos / BITS_PER_UNIT] >> (pos % BITS_PER_UNIT)) & 1;
+    }
+    
+    inline void set_bit(int x, int y, bool value) {
+        int pos = y * CHUNK_SIZE + x;
+        int idx = pos / BITS_PER_UNIT;
+        BitmapType mask = static_cast<BitmapType>(1) << (pos % BITS_PER_UNIT);
+        
+        if (value) {
+            if (!(bitmap[idx] & mask)) {
+                bitmap[idx] |= mask;
+                live_count++;
+            }
+        } else {
+            if (bitmap[idx] & mask) {
+                bitmap[idx] &= ~mask;
+                live_count--;
+            }
+        }
+    }
+#endif
 };
 
 enum Mode { DESIGN, COMMAND, PLAY };
@@ -29,208 +101,191 @@ struct GameState {
     Mode mode = DESIGN;
     int rows, cols;
     
-    // 使用块存储的世界（稀疏矩阵）
+    // 使用块存储的世界
     unordered_map<int, unordered_map<int, Chunk*>> world;
     
-    // 活动细胞计数器（用于性能优化）
     int live_cell_count = 0;
-    
-    // 视口位置（左上角的世界坐标）
     int viewport_x = 0;
     int viewport_y = 0;
-    
-    // 光标位置（屏幕坐标）
     int cursor_screen_x = 0;
     int cursor_screen_y = 0;
-    
-    // 上一次光标位置（用于修复光标痕迹）
     int prev_cursor_screen_x = -1;
     int prev_cursor_screen_y = -1;
-    
-    // 标记视口是否改变（需要重绘所有可见块）
     bool viewport_changed = false;
-    
-    // 标记需要完全刷新视口
     bool need_full_refresh = false;
     
     string command_str;
     bool precompute = false;
-    int precompute_rounds = 20; // 默认预计算轮数
+    int precompute_rounds = 20;
     bool running = true;
     
-    // 脏矩形集合（优化绘制）
     vector<pair<int, int>> dirty_chunks;
+    
+    // 重用数据结构减少内存分配
+    vector<pair<int, int>> positions_to_check;
+    vector<tuple<int, int, bool>> updates;
 };
 
-// 获取指定坐标的块（如果不存在则返回nullptr）
 Chunk* get_chunk_if_exists(GameState& state, int world_x, int world_y) {
     int chunk_x = world_x / CHUNK_SIZE;
     int chunk_y = world_y / CHUNK_SIZE;
     
-    if (state.world.find(chunk_y) == state.world.end()) {
-        return nullptr;
-    }
+    auto row_it = state.world.find(chunk_y);
+    if (row_it == state.world.end()) return nullptr;
     
-    if (state.world[chunk_y].find(chunk_x) == state.world[chunk_y].end()) {
-        return nullptr;
-    }
-    
-    return state.world[chunk_y][chunk_x];
+    auto chunk_it = row_it->second.find(chunk_x);
+    return (chunk_it != row_it->second.end()) ? chunk_it->second : nullptr;
 }
 
-// 获取指定坐标的块（如果不存在则创建）
 Chunk* get_chunk(GameState& state, int world_x, int world_y) {
     int chunk_x = world_x / CHUNK_SIZE;
     int chunk_y = world_y / CHUNK_SIZE;
     
-    if (state.world.find(chunk_y) == state.world.end()) {
-        state.world[chunk_y] = unordered_map<int, Chunk*>();
-    }
+    auto& row = state.world[chunk_y];
+    auto it = row.find(chunk_x);
+    if (it != row.end()) return it->second;
     
-    if (state.world[chunk_y].find(chunk_x) == state.world[chunk_y].end()) {
-        state.world[chunk_y][chunk_x] = new Chunk();
-    }
-    
-    return state.world[chunk_y][chunk_x];
+    Chunk* chunk = new Chunk();
+    row[chunk_x] = chunk;
+    return chunk;
 }
 
-// 获取细胞状态（不创建新块）
 bool peek_cell(GameState& state, int world_x, int world_y) {
     Chunk* chunk = get_chunk_if_exists(state, world_x, world_y);
-    if (chunk == nullptr) {
-        return false; // 块不存在，细胞为死状态
-    }
+    if (!chunk) return false;
     
     int local_x = world_x % CHUNK_SIZE;
     int local_y = world_y % CHUNK_SIZE;
-    return chunk->cells[local_y][local_x];
+    return chunk->get_bit(local_x, local_y);
 }
 
-// 设置细胞状态
 void set_cell(GameState& state, int world_x, int world_y, bool alive) {
     Chunk* chunk = get_chunk(state, world_x, world_y);
     int local_x = world_x % CHUNK_SIZE;
     int local_y = world_y % CHUNK_SIZE;
     
-    bool current = chunk->cells[local_y][local_x];
+    bool current = chunk->get_bit(local_x, local_y);
     if (current != alive) {
-        chunk->cells[local_y][local_x] = alive;
+        chunk->set_bit(local_x, local_y, alive);
         chunk->dirty = true;
         
-        // 更新活细胞计数
         if (alive) state.live_cell_count++;
         else state.live_cell_count--;
         
-        // 标记块为脏
         int chunk_x = world_x / CHUNK_SIZE;
         int chunk_y = world_y / CHUNK_SIZE;
         state.dirty_chunks.push_back({chunk_x, chunk_y});
     }
 }
 
-// 初始化游戏状态
 void init_game(GameState &state, int argc, char** argv) {
     state.rows = LINES;
     state.cols = COLS;
-    
-    // 初始光标位置居中
     state.cursor_screen_x = state.cols / 2;
     state.cursor_screen_y = state.rows / 2;
     
-    // 检查是否需要预计算
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-z") == 0) {
             state.precompute = true;
-            // 检查是否有指定轮数
             if (i + 1 < argc) {
                 char* end;
                 long rounds = strtol(argv[i+1], &end, 10);
                 if (*end == '\0' && rounds > 0 && rounds <= 1000) {
                     state.precompute_rounds = rounds;
-                    i++; // 跳过下一个参数
+                    i++;
                 }
             }
         }
     }
+    
+    // 预分配内存
+    state.positions_to_check.reserve(2048);
+    state.updates.reserve(1024);
 }
 
-// 计算下一代（使用基于块的优化）
+// 优化邻居计算
+const int neighbor_offsets[8][2] = {
+    {-1, -1}, {0, -1}, {1, -1},
+    {-1,  0},           {1,  0},
+    {-1,  1}, {0,  1}, {1,  1}
+};
+
 void compute_generation(GameState &state) {
-    if (state.live_cell_count == 0) return; // 没有活细胞，跳过计算
+    if (state.live_cell_count == 0) return;
     
-    // 仅存储需要更新的细胞
-    vector<tuple<int, int, bool>> updates;
-    unordered_set<long> positions_to_check;
+    state.positions_to_check.clear();
+    state.updates.clear();
     
-    // 只处理有活细胞的块及其邻居
+    // 只处理包含活细胞的块
     for (auto& [chunk_y, row] : state.world) {
         for (auto& [chunk_x, chunk] : row) {
-            if (chunk == nullptr) continue;
+            if (!chunk || chunk->live_count == 0) continue;
             
+            int world_base_x = chunk_x * CHUNK_SIZE;
+            int world_base_y = chunk_y * CHUNK_SIZE;
+            
+            // 扫描位图寻找活细胞
             for (int y = 0; y < CHUNK_SIZE; y++) {
                 for (int x = 0; x < CHUNK_SIZE; x++) {
-                    if (!chunk->cells[y][x]) continue;
+                    if (!chunk->get_bit(x, y)) continue;
                     
-                    int world_x = chunk_x * CHUNK_SIZE + x;
-                    int world_y = chunk_y * CHUNK_SIZE + y;
+                    int world_x = world_base_x + x;
+                    int world_y = world_base_y + y;
                     
-                    // 添加活细胞及其所有邻居
-                    for (int dy = -1; dy <= 1; dy++) {
-                        for (int dx = -1; dx <= 1; dx++) {
-                            int nx = world_x + dx;
-                            int ny = world_y + dy;
-                            long key = (static_cast<long>(nx) << 32) | (ny & 0xFFFFFFFFL);
-                            positions_to_check.insert(key);
-                        }
+                    // 添加活细胞及其邻居
+                    for (int i = 0; i < 8; i++) {
+                        int nx = world_x + neighbor_offsets[i][0];
+                        int ny = world_y + neighbor_offsets[i][1];
+                        state.positions_to_check.emplace_back(nx, ny);
                     }
+                    state.positions_to_check.emplace_back(world_x, world_y);
                 }
             }
         }
     }
     
-    // 第二步：只处理需要检查的位置
-    for (long key : positions_to_check) {
-        int world_x = static_cast<int>(key >> 32);
-        int world_y = static_cast<int>(key & 0xFFFFFFFFL);
-        
-        // 计算邻居数量
+    // 排序去重
+    sort(state.positions_to_check.begin(), state.positions_to_check.end());
+    auto last = unique(state.positions_to_check.begin(), state.positions_to_check.end());
+    state.positions_to_check.erase(last, state.positions_to_check.end());
+    
+    // 计算每个位置的下一代状态
+    for (auto& pos : state.positions_to_check) {
+        int world_x = pos.first;
+        int world_y = pos.second;
         int neighbors = 0;
-        for (int dy = -1; dy <= 1; dy++) {
-            for (int dx = -1; dx <= 1; dx++) {
-                if (dx == 0 && dy == 0) continue;
-                
-                int nx = world_x + dx;
-                int ny = world_y + dy;
-                
-                // 检查边界外的细胞
-                if (peek_cell(state, nx, ny)) {
-                    neighbors++;
-                }
+        
+        // 计算邻居
+        for (int i = 0; i < 8; i++) {
+            int nx = world_x + neighbor_offsets[i][0];
+            int ny = world_y + neighbor_offsets[i][1];
+            
+            if (peek_cell(state, nx, ny)) {
+                neighbors++;
             }
         }
         
         bool current = peek_cell(state, world_x, world_y);
         if (current) {
             if (neighbors < 2 || neighbors > 3) {
-                updates.push_back({world_x, world_y, false});
+                state.updates.emplace_back(world_x, world_y, false);
             }
         } else {
             if (neighbors == 3) {
-                updates.push_back({world_x, world_y, true});
+                state.updates.emplace_back(world_x, world_y, true);
             }
         }
     }
     
     // 应用更新
-    for (auto& [x, y, alive] : updates) {
-        set_cell(state, x, y, alive);
+    for (auto& update : state.updates) {
+        set_cell(state, get<0>(update), get<1>(update), get<2>(update));
     }
 }
 
-// 显示加载页面（简化版）
 void show_loading(GameState &state) {
     clear();
-    int width = min(30, state.cols - 10); // 更小的进度条
+    int width = min(30, state.cols - 10);
     int start_col = (state.cols - width) / 2;
     int start_row = state.rows / 2;
     
@@ -239,13 +294,11 @@ void show_loading(GameState &state) {
     mvprintw(start_row, start_col + width, "]");
     refresh();
     
-    // 计算刷新间隔（避免太多刷新影响性能）
     int refresh_interval = max(1, state.precompute_rounds / 50);
     
     for (int i = 0; i < state.precompute_rounds; i++) {
         compute_generation(state);
         
-        // 定期刷新进度条
         if (i % refresh_interval == 0) {
             int progress = (i + 1) * width / state.precompute_rounds;
             
@@ -258,17 +311,14 @@ void show_loading(GameState &state) {
         }
     }
     
-    // 绘制完整进度条
     for (int j = 0; j < width; j++) {
         mvaddch(start_row, start_col + j, '=' | A_REVERSE);
     }
     mvprintw(start_row + 2, start_col, "Progress: 100%%");
     refresh();
     
-    // 短暂暂停让用户看到完成状态
     this_thread::sleep_for(chrono::milliseconds(200));
     
-    // 清除加载信息
     for (int r = start_row - 2; r <= start_row + 2; r++) {
         move(r, 0);
         clrtoeol();
@@ -276,7 +326,6 @@ void show_loading(GameState &state) {
     refresh();
 }
 
-// 绘制一个块
 void draw_chunk(GameState& state, int chunk_x, int chunk_y, Chunk* chunk) {
     int world_start_x = chunk_x * CHUNK_SIZE;
     int world_start_y = chunk_y * CHUNK_SIZE;
@@ -289,7 +338,7 @@ void draw_chunk(GameState& state, int chunk_x, int chunk_y, Chunk* chunk) {
             if (screen_x >= 0 && screen_x < state.cols && 
                 screen_y >= 0 && screen_y < state.rows) {
                 
-                if (chunk->cells[y][x]) {
+                if (chunk->get_bit(x, y)) {
                     mvaddch(screen_y, screen_x, '#' | A_BOLD);
                 } else {
                     mvaddch(screen_y, screen_x, ' ');
@@ -301,92 +350,75 @@ void draw_chunk(GameState& state, int chunk_x, int chunk_y, Chunk* chunk) {
     chunk->dirty = false;
 }
 
-// 修复光标痕迹问题（使用peek_cell避免创建新块）
 void draw_cursor(GameState &state) {
-    // 清除上一次光标的痕迹
     if (state.prev_cursor_screen_y >= 0 && state.prev_cursor_screen_y < state.rows && 
         state.prev_cursor_screen_x >= 0 && state.prev_cursor_screen_x < state.cols) {
         
-        // 计算上一次位置的世界坐标
         int world_x = state.prev_cursor_screen_x + state.viewport_x;
         int world_y = state.prev_cursor_screen_y + state.viewport_y;
         
-        // 使用peek_cell避免创建新块
         bool isAlive = peek_cell(state, world_x, world_y);
         chtype ch = isAlive ? '#' : ' ';
         
-        // 在旧位置正常绘制细胞
         mvaddch(state.prev_cursor_screen_y, state.prev_cursor_screen_x, ch);
     }
     
-    // 保存当前光标位置作为下一次的上一次位置
     state.prev_cursor_screen_x = state.cursor_screen_x;
     state.prev_cursor_screen_y = state.cursor_screen_y;
     
-    // 在新位置绘制光标（反色显示）
     if (state.cursor_screen_y >= 0 && state.cursor_screen_y < state.rows && 
         state.cursor_screen_x >= 0 && state.cursor_screen_x < state.cols) {
         
-        // 计算当前位置的世界坐标
         int world_x = state.cursor_screen_x + state.viewport_x;
         int world_y = state.cursor_screen_y + state.viewport_y;
         
-        // 使用peek_cell避免创建新块
         bool isAlive = peek_cell(state, world_x, world_y);
         chtype ch = isAlive ? '#' : ' ';
         
-        // 在新位置反色显示
         mvaddch(state.cursor_screen_y, state.cursor_screen_x, ch | A_REVERSE);
     }
 }
 
-// 绘制所有可见块
 void draw_all_visible_chunks(GameState &state) {
-    // 计算视口范围（世界坐标）
     int min_world_x = state.viewport_x;
     int min_world_y = state.viewport_y;
     int max_world_x = state.viewport_x + state.cols;
     int max_world_y = state.viewport_y + state.rows;
     
-    // 转换为块坐标
     int min_chunk_x = min_world_x / CHUNK_SIZE;
     int min_chunk_y = min_world_y / CHUNK_SIZE;
     int max_chunk_x = max_world_x / CHUNK_SIZE + 1;
     int max_chunk_y = max_world_y / CHUNK_SIZE + 1;
     
-    // 遍历所有可能包含可见块的块
     for (int chunk_y = min_chunk_y; chunk_y <= max_chunk_y; chunk_y++) {
         if (state.world.find(chunk_y) == state.world.end()) continue;
         
         for (int chunk_x = min_chunk_x; chunk_x <= max_chunk_x; chunk_x++) {
             if (state.world[chunk_y].find(chunk_x) == state.world[chunk_y].end()) continue;
             
-            // 绘制这个块
             draw_chunk(state, chunk_x, chunk_y, state.world[chunk_y][chunk_x]);
         }
     }
 }
 
-// 设计模式
 void design_mode(GameState &state) {
-    curs_set(1); // 显示光标
-    state.dirty_chunks.clear(); // 清除脏块列表
+    curs_set(1);
+    state.dirty_chunks.clear();
     
-    // 初始化上一次光标位置
     state.prev_cursor_screen_x = state.cursor_screen_x;
     state.prev_cursor_screen_y = state.cursor_screen_y;
     
     while (state.mode == DESIGN) {
         if (state.viewport_changed || state.need_full_refresh) {
-            // 视口改变或需要完全刷新，重绘所有可见块
             clear();
             draw_all_visible_chunks(state);
             state.viewport_changed = false;
             state.need_full_refresh = false;
-            state.dirty_chunks.clear(); // 清除脏块列表，因为已经全部重绘
+            state.dirty_chunks.clear();
         } else {
-            // 只绘制脏块
-            for (auto& [chunk_x, chunk_y] : state.dirty_chunks) {
+            for (auto& chunk_pos : state.dirty_chunks) {
+                int chunk_x = chunk_pos.first;
+                int chunk_y = chunk_pos.second;
                 if (state.world.find(chunk_y) != state.world.end() && 
                     state.world[chunk_y].find(chunk_x) != state.world[chunk_y].end()) {
                     draw_chunk(state, chunk_x, chunk_y, state.world[chunk_y][chunk_x]);
@@ -395,10 +427,8 @@ void design_mode(GameState &state) {
             state.dirty_chunks.clear();
         }
         
-        // 绘制光标（处理痕迹问题）
         draw_cursor(state);
         
-        // 显示模式信息和坐标
         mvprintw(0, 0, "DESIGN MODE - Cells: %d | Cursor: (%d, %d) | Viewport: (%d, %d)", 
                  state.live_cell_count, 
                  state.cursor_screen_x + state.viewport_x, 
@@ -407,7 +437,6 @@ void design_mode(GameState &state) {
         clrtoeol();
         refresh();
         
-        // 处理输入
         int ch = getch();
         switch (ch) {
             case 'q': case 'Q':
@@ -423,7 +452,7 @@ void design_mode(GameState &state) {
                     show_loading(state);
                 }
                 return;
-            case 'w': case 'W': // WASD 移动地图
+            case 'w': case 'W':
                 state.viewport_y--;
                 state.viewport_changed = true;
                 break;
@@ -439,7 +468,7 @@ void design_mode(GameState &state) {
                 state.viewport_x++;
                 state.viewport_changed = true;
                 break;
-            case KEY_UP: // 方向键移动光标
+            case KEY_UP:
                 if (state.cursor_screen_y > 0) state.cursor_screen_y--;
                 break;
             case KEY_DOWN:
@@ -451,16 +480,11 @@ void design_mode(GameState &state) {
             case KEY_RIGHT:
                 if (state.cursor_screen_x < state.cols - 1) state.cursor_screen_x++;
                 break;
-            case '\n': case ' ': // 回车或空格反转细胞状态
+            case '\n': case ' ':
             {
-                // 计算光标位置的世界坐标
                 int world_x = state.cursor_screen_x + state.viewport_x;
                 int world_y = state.cursor_screen_y + state.viewport_y;
-                
-                // 使用peek_cell获取当前状态（不创建新块）
                 bool current = peek_cell(state, world_x, world_y);
-                
-                // 使用set_cell设置新状态（会创建块）
                 set_cell(state, world_x, world_y, !current);
                 break;
             }
@@ -468,99 +492,113 @@ void design_mode(GameState &state) {
     }
 }
 
-// 命令模式（简化版）
 void command_mode(GameState &state) {
-    curs_set(1); // 显示光标
-    echo();      // 开启回显
+    curs_set(1);
+    echo();
     
     while (state.mode == COMMAND) {
-        // 显示命令提示
         move(state.rows - 1, 0);
         clrtoeol();
         printw("CMD:%s", state.command_str.c_str());
         move(state.rows - 1, 5 + state.command_str.size());
         refresh();
         
-        // 处理输入
         int ch = getch();
         switch (ch) {
-            case 27: // ESC
+            case 27:
                 state.mode = DESIGN;
                 break;
-            case '\n': // 执行命令
+            case '\n':
                 if (state.command_str.substr(0, 4) == "rand") {
                     int x, y, w, h;
                     if (sscanf(state.command_str.c_str(), "rand %d %d %d %d", 
                                &x, &y, &w, &h) == 4) {
-                        // 生成随机结构
                         for (int i = y; i < y + h; i++) {
                             for (int j = x; j < x + w; j++) {
-                                if (rand() % 3 == 0) { // 1/3的概率
+                                if (rand() % 3 == 0) {
                                     set_cell(state, j, i, true);
                                 }
                             }
                         }
-                        // 设置需要完全刷新视口
                         state.need_full_refresh = true;
                     }
                 }
                 state.mode = DESIGN;
                 break;
-            case 127: case KEY_BACKSPACE: // 退格
+            case 127: case KEY_BACKSPACE:
                 if (!state.command_str.empty()) {
                     state.command_str.pop_back();
                 }
                 break;
             default:
-                if (ch >= 32 && ch <= 126) { // 可打印字符
+                if (ch >= 32 && ch <= 126) {
                     state.command_str += ch;
                 }
                 break;
         }
     }
     
-    noecho(); // 关闭回显
+    noecho();
 }
 
-// 演算模式（高度优化）
 void play_mode(GameState &state) {
-    curs_set(0); // 隐藏光标
-    nodelay(stdscr, TRUE); // 非阻塞输入
+    curs_set(0);
+    nodelay(stdscr, TRUE);
     state.dirty_chunks.clear();
+    
+    int generation_count = 0;
+    int frames_skipped = 0;
+    const int max_skip_frames = 3;
     
     while (state.mode == PLAY) {
         auto start_time = chrono::steady_clock::now();
         
-        // 计算下一代（只在有活细胞时）
         if (state.live_cell_count > 0) {
             compute_generation(state);
+            generation_count++;
         }
         
-        if (state.viewport_changed || state.need_full_refresh) {
-            // 视口改变或需要完全刷新，重绘所有可见块
-            clear();
-            draw_all_visible_chunks(state);
-            state.viewport_changed = false;
-            state.need_full_refresh = false;
-            state.dirty_chunks.clear(); // 清除脏块列表，因为已经全部重绘
+        auto compute_time = chrono::steady_clock::now();
+        
+        bool should_draw = true;
+        
+        if (frames_skipped < max_skip_frames && 
+            chrono::duration_cast<chrono::milliseconds>(compute_time - start_time).count() > 80) {
+            should_draw = false;
+            frames_skipped++;
         } else {
-            // 只绘制脏块
-            for (auto& [chunk_x, chunk_y] : state.dirty_chunks) {
-                if (state.world.find(chunk_y) != state.world.end() && 
-                    state.world[chunk_y].find(chunk_x) != state.world[chunk_y].end()) {
-                    draw_chunk(state, chunk_x, chunk_y, state.world[chunk_y][chunk_x]);
-                }
-            }
-            state.dirty_chunks.clear();
+            frames_skipped = 0;
         }
         
-        // 显示模式信息
-        mvprintw(0, 0, "PLAY MODE - Cells: %d | Viewport: (%d, %d)", 
-                 state.live_cell_count, state.viewport_x, state.viewport_y);
-        clrtoeol();
-        refresh();
+        if (should_draw) {
+            if (state.viewport_changed || state.need_full_refresh) {
+                clear();
+                draw_all_visible_chunks(state);
+                state.viewport_changed = false;
+                state.need_full_refresh = false;
+                state.dirty_chunks.clear();
+            } else {
+                for (auto& chunk_pos : state.dirty_chunks) {
+                    int chunk_x = chunk_pos.first;
+                    int chunk_y = chunk_pos.second;
+                    if (state.world.find(chunk_y) != state.world.end() && 
+                        state.world[chunk_y].find(chunk_x) != state.world[chunk_y].end()) {
+                        draw_chunk(state, chunk_x, chunk_y, state.world[chunk_y][chunk_x]);
+                    }
+                }
+                state.dirty_chunks.clear();
+            }
+            
+            auto draw_time = chrono::steady_clock::now();
+            auto compute_duration = chrono::duration_cast<chrono::milliseconds>(compute_time - start_time);
+            auto draw_duration = chrono::duration_cast<chrono::milliseconds>(draw_time - compute_time);
+            
+            mvprintw(0, 0, "PLAY MODE - Gen: %d, Cells: %d | Compute: %lldms | Draw: %lldms", 
+                     generation_count, state.live_cell_count, compute_duration.count(), draw_duration.count());
+            clrtoeol();
+            refresh();
+        }
         
-        // 处理输入
         int ch = getch();
         if (ch == 'q' || ch == 'Q') {
             state.mode = DESIGN;
@@ -578,7 +616,6 @@ void play_mode(GameState &state) {
             state.viewport_changed = true;
         }
         
-        // 自适应延迟，保持约10FPS
         auto frame_time = chrono::duration_cast<chrono::milliseconds>(
             chrono::steady_clock::now() - start_time).count();
         
@@ -586,51 +623,39 @@ void play_mode(GameState &state) {
         this_thread::sleep_for(chrono::milliseconds(delay));
     }
     
-    nodelay(stdscr, FALSE); // 恢复阻塞输入
+    nodelay(stdscr, FALSE);
 }
 
 int main(int argc, char** argv) {
-    // 初始化ncurses
     initscr();
     cbreak();
     noecho();
     keypad(stdscr, TRUE);
     curs_set(0);
     timeout(0);
-    set_escdelay(25); // 设置ESC键延迟为25ms
-    start_color(); // 启用颜色支持
-    use_default_colors(); // 使用终端默认颜色
+    set_escdelay(25);
+    start_color();
+    use_default_colors();
     
-    // 初始化随机种子
     srand(time(nullptr));
     
-    // 初始化游戏状态
     GameState state;
     init_game(state, argc, argv);
     
-    // 主循环
     while (state.running) {
         switch (state.mode) {
-            case DESIGN:
-                design_mode(state);
-                break;
-            case COMMAND:
-                command_mode(state);
-                break;
-            case PLAY:
-                play_mode(state);
-                break;
+            case DESIGN: design_mode(state); break;
+            case COMMAND: command_mode(state); break;
+            case PLAY: play_mode(state); break;
         }
     }
     
-    // 清理内存
     for (auto& [y, row] : state.world) {
         for (auto& [x, chunk] : row) {
             delete chunk;
         }
     }
     
-    // 清理ncurses
     endwin();
     return 0;
 }
