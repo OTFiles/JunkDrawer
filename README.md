@@ -1,19 +1,19 @@
-#JunkDrawer
+# JunkDrawer
 放一些有趣的玩意
 
-##bdfy.py
+## bdfy.py
 基于`baidu_translate_api`项目实现的较为完整功能的小程序，你应该先安装`baidu_translate_api`:
 ```shell
 pip install baidu_translate_api
 ```
 
-##CubeGL.cpp
+## CubeGL.cpp
 渲染一个正方体(在终端)，详细的编译方法见文件注释
 
-##Hypercube.html
+## Hypercube.html
 在网页渲染一个超立方体，目前支持4d和5d，使用浏览器打开这个文件即可
 
-##LifeGame.cpp
+## LifeGame.cpp
 生命游戏(在终端)，详细的编译方法见文件注释。
 当添加`-z <数字>`参数时，在演算时会提前演算
 默认模式:设计模式，按回车或者空格键切换细胞状态，按`Q`退出
@@ -25,11 +25,23 @@ pip install baidu_translate_api
 演算模式:按`Y`进入，按`Q`退出
 移动:上下左右键移动光标，wasd移动地图
 
-##mergeText.py
+## mergeText.py
 将`in`目录下的所有文件合并
 
-##MiGong.cpp
+## MiGong.cpp
 一个移动就会刷新的迷宫，并会显示到终点的路径
 
-##NotifyRPG.sh
+## NotifyRPG.sh
 仅支持在termux上运行，调用`termux-notification`和`termux-notification-remove`实现的一个简单文字冒险游戏
+
+## srf.cpp
+终端输入法，依赖于`srf.conf`文件(词库)，按ctrl+z键切换中英输入法
+
+## RunRemote
+用于远程执行`run.sh`文件
+
+## TUXmod.cpp
+为权限设置和用户/用户组的设置提供TUI界面
+
+## ThreeBody.html
+如文件名
