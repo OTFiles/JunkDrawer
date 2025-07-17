@@ -1,0 +1,1116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>动力系统模拟器 | 混沌与复杂系统</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        :root {
+            /* Material Design 3 颜色方案 */
+            --md-sys-color-primary: #6750A4;
+            --md-sys-color-on-primary: #FFFFFF;
+            --md-sys-color-primary-container: #EADDFF;
+            --md-sys-color-on-primary-container: #21005D;
+            --md-sys-color-secondary: #625B71;
+            --md-sys-color-on-secondary: #FFFFFF;
+            --md-sys-color-secondary-container: #E8DEF8;
+            --md-sys-color-on-secondary-container: #1D192B;
+            --md-sys-color-tertiary: #7D5260;
+            --md-sys-color-on-tertiary: #FFFFFF;
+            --md-sys-color-tertiary-container: #FFD8E4;
+            --md-sys-color-on-tertiary-container: #31111D;
+            --md-sys-color-error: #B3261E;
+            --md-sys-color-on-error: #FFFFFF;
+            --md-sys-color-error-container: #F9DEDC;
+            --md-sys-color-on-error-container: #410E0B;
+            --md-sys-color-background: #FFFBFE;
+            --md-sys-color-on-background: #1C1B1F;
+            --md-sys-color-surface: #FFFBFE;
+            --md-sys-color-on-surface: #1C1B1F;
+            --md-sys-color-surface-variant: #E7E0EC;
+            --md-sys-color-on-surface-variant: #49454F;
+            --md-sys-color-outline: #79747E;
+            --md-sys-color-shadow: #000000;
+            
+            --md-ref-typeface-brand: 'Roboto', sans-serif;
+            --md-ref-typeface-plain: 'Roboto', sans-serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--md-ref-typeface-plain);
+            background-color: var(--md-sys-color-background);
+            color: var(--md-sys-color-on-background);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* 顶部应用栏 */
+        .app-bar {
+            display: flex;
+            align-items: center;
+            padding: 16px 24px;
+            background-color: var(--md-sys-color-primary);
+            color: var(--md-sys-color-on-primary);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            z-index: 10;
+        }
+
+        .app-bar h1 {
+            font-size: 1.5rem;
+            font-weight: 500;
+            margin-right: auto;
+        }
+
+        /* 主内容区域 */
+        .main-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            height: calc(100vh - 72px);
+        }
+
+        /* 系统控制面板 */
+        .control-panel {
+            width: 320px;
+            background-color: var(--md-sys-color-surface);
+            border-right: 1px solid var(--md-sys-color-outline);
+            height: 100%;
+            overflow-y: auto;
+            transition: transform 0.3s ease;
+            z-index: 5;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .panel-section {
+            background: var(--md-sys-color-surface-variant);
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .section-title {
+            display: flex;
+            align-items: center;
+            margin-bottom: 16px;
+            color: var(--md-sys-color-primary);
+            font-weight: 500;
+        }
+
+        .section-title .material-icons {
+            margin-right: 8px;
+        }
+
+        .system-list {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
+
+        .system-card {
+            background: var(--md-sys-color-surface);
+            border-radius: 12px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 2px solid transparent;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .system-card:hover {
+            background: var(--md-sys-color-primary-container);
+        }
+
+        .system-card.active {
+            border-color: var(--md-sys-color-primary);
+            background: var(--md-sys-color-primary-container);
+        }
+
+        .system-card .material-icons {
+            font-size: 2rem;
+            margin-bottom: 8px;
+            color: var(--md-sys-color-primary);
+        }
+
+        .system-card h3 {
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .param-control {
+            margin-bottom: 12px;
+        }
+
+        .param-control label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 0.9rem;
+            color: var(--md-sys-color-on-surface-variant);
+        }
+
+        .param-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .slider-container {
+            flex: 1;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 4px;
+            -webkit-appearance: none;
+            background: var(--md-sys-color-outline);
+            border-radius: 2px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--md-sys-color-primary);
+            cursor: pointer;
+        }
+
+        .value-display {
+            min-width: 50px;
+            text-align: right;
+            font-size: 0.9rem;
+            color: var(--md-sys-color-primary);
+        }
+
+        /* 模拟区域 */
+        .simulation-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 24px;
+            position: relative;
+            overflow: hidden;
+            height: 100%;
+        }
+
+        .canvas-container {
+            flex: 1;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+            position: relative;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        .controls {
+            display: flex;
+            gap: 12px;
+            padding: 16px 0;
+        }
+
+        /* Material Design 按钮 */
+        .mdc-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            box-sizing: border-box;
+            min-width: 64px;
+            height: 40px;
+            padding: 0 24px;
+            border: none;
+            border-radius: 20px;
+            outline: none;
+            background: var(--md-sys-color-primary);
+            color: var(--md-sys-color-on-primary);
+            font-family: var(--md-ref-typeface-plain);
+            font-size: 0.875rem;
+            font-weight: 500;
+            letter-spacing: 0.0892857143em;
+            text-transform: uppercase;
+            cursor: pointer;
+            overflow: hidden;
+            transition: background-color 0.2s, box-shadow 0.2s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .mdc-button:hover {
+            background-color: var(--md-sys-color-primary-container);
+            color: var(--md-sys-color-on-primary-container);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+
+        .mdc-button .material-icons {
+            margin-right: 8px;
+            font-size: 1.25rem;
+        }
+
+        /* 系统信息面板 */
+        .info-panel {
+            background-color: var(--md-sys-color-surface);
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .info-panel h3 {
+            font-size: 1.125rem;
+            margin-bottom: 12px;
+            color: var(--md-sys-color-primary);
+        }
+
+        .info-panel p {
+            font-size: 0.9rem;
+            line-height: 1.5;
+            color: var(--md-sys-color-on-surface-variant);
+        }
+
+        /* 全屏样式 */
+        .fullscreen .canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 100;
+            border-radius: 0;
+        }
+
+        .fullscreen .controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 101;
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            border-radius: 24px;
+            padding: 8px 16px;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 1024px) {
+            .control-panel {
+                width: 280px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                flex-direction: column;
+                height: auto;
+            }
+            
+            .control-panel {
+                width: 100%;
+                height: auto;
+                border-right: none;
+                border-bottom: 1px solid var(--md-sys-color-outline);
+            }
+            
+            .simulation-area {
+                height: 60vh;
+                padding: 16px;
+            }
+            
+            .system-list {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        @media (max-width: 480px) {
+            .system-list {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .app-bar h1 {
+                font-size: 1.2rem;
+            }
+            
+            .mdc-button span {
+                display: none;
+            }
+            
+            .mdc-button .material-icons {
+                margin-right: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 顶部应用栏 -->
+    <div class="app-bar">
+        <h1>动力系统模拟器</h1>
+        <button id="fullscreen" class="mdc-button">
+            <span class="material-icons">fullscreen</span>
+            <span>全屏</span>
+        </button>
+    </div>
+
+    <!-- 主内容区域 -->
+    <div class="main-content">
+        <!-- 控制面板 -->
+        <div class="control-panel">
+            <div class="panel-section">
+                <div class="section-title">
+                    <span class="material-icons">science</span>
+                    <h2>动力系统</h2>
+                </div>
+                <div class="system-list">
+                    <div class="system-card active" data-system="three-body">
+                        <span class="material-icons">hub</span>
+                        <h3>三体问题</h3>
+                    </div>
+                    <div class="system-card" data-system="double-pendulum">
+                        <span class="material-icons">sync_alt</span>
+                        <h3>双摆系统</h3>
+                    </div>
+                    <div class="system-card" data-system="lorenz">
+                        <span class="material-icons">waves</span>
+                        <h3>洛伦兹吸引子</h3>
+                    </div>
+                    <div class="system-card" data-system="henon">
+                        <span class="material-icons">polyline</span>
+                        <h3>Hénon映射</h3>
+                    </div>
+                    <div class="system-card" data-system="clifford">
+                        <span class="material-icons">auto_awesome</span>
+                        <h3>Clifford吸引子</h3>
+                    </div>
+                    <div class="system-card" data-system="rossler">
+                        <span class="material-icons">cyclone</span>
+                        <h3>Rössler吸引子</h3>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="panel-section">
+                <div class="section-title">
+                    <span class="material-icons">tune</span>
+                    <h2>参数控制</h2>
+                </div>
+                <div id="params-container">
+                    <!-- 参数控件将动态生成 -->
+                </div>
+            </div>
+            
+            <div class="panel-section info-panel">
+                <h3 id="system-title">三体问题</h3>
+                <p id="system-description">三体问题是指三个天体在相互引力作用下的运动问题。这是一个经典的混沌系统，对初始条件极为敏感。三体问题没有通用解析解，只能通过数值方法模拟。</p>
+            </div>
+        </div>
+
+        <!-- 模拟区域 -->
+        <div class="simulation-area">
+            <div class="canvas-container">
+                <canvas id="simulation-canvas"></canvas>
+            </div>
+            
+            <div class="controls">
+                <button id="play-pause" class="mdc-button">
+                    <span class="material-icons">pause</span>
+                    <span>暂停</span>
+                </button>
+                <button id="reset" class="mdc-button">
+                    <span class="material-icons">replay</span>
+                    <span>重置</span>
+                </button>
+                <button id="randomize" class="mdc-button">
+                    <span class="material-icons">shuffle</span>
+                    <span>随机</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 系统描述信息
+        const systemInfo = {
+            'three-body': {
+                title: '三体问题',
+                description: '三体问题是指三个天体在相互引力作用下的运动问题。这是一个经典的混沌系统，对初始条件极为敏感。三体问题没有通用解析解，只能通过数值方法模拟。',
+                params: [
+                    { id: 'gravity', name: '引力常数', min: 0.01, max: 0.5, step: 0.01, value: 0.1 },
+                    { id: 'mass1', name: '质量 1', min: 50, max: 200, step: 1, value: 100 },
+                    { id: 'mass2', name: '质量 2', min: 50, max: 200, step: 1, value: 100 },
+                    { id: 'mass3', name: '质量 3', min: 50, max: 200, step: 1, value: 100 }
+                ]
+            },
+            'double-pendulum': {
+                title: '双摆系统',
+                description: '双摆系统由两个摆连接而成，是一个简单的物理系统却表现出复杂的混沌行为。系统对初始条件极为敏感，微小的变化会导致完全不同的运动轨迹。',
+                params: [
+                    { id: 'gravity', name: '重力加速度', min: 0.1, max: 1.0, step: 0.05, value: 0.2 },
+                    { id: 'length1', name: '摆长 1', min: 50, max: 200, step: 5, value: 100 },
+                    { id: 'length2', name: '摆长 2', min: 50, max: 200, step: 5, value: 100 },
+                    { id: 'mass1', name: '质量 1', min: 10, max: 40, step: 1, value: 20 },
+                    { id: 'mass2', name: '质量 2', min: 10, max: 40, step: 1, value: 20 }
+                ]
+            },
+            'lorenz': {
+                title: '洛伦兹吸引子',
+                description: '洛伦兹吸引子是气象学家爱德华·洛伦兹在1963年提出的一个简化大气对流模型。该系统表现出确定性非周期流，是混沌理论的经典范例，其轨迹形成著名的蝴蝶状图案。',
+                params: [
+                    { id: 'sigma', name: 'σ (普朗特数)', min: 1, max: 20, step: 0.5, value: 10 },
+                    { id: 'rho', name: 'ρ (瑞利数)', min: 1, max: 50, step: 0.5, value: 28 },
+                    { id: 'beta', name: 'β (几何参数)', min: 1, max: 5, step: 0.1, value: 2.67 }
+                ]
+            },
+            'henon': {
+                title: 'Hénon映射',
+                description: 'Hénon映射是由法国天文学家Michel Hénon于1976年提出的离散动力系统，用于研究星团运动。这个简单的二维映射却能产生复杂的混沌行为，是研究混沌动力学的经典模型。',
+                params: [
+                    { id: 'a', name: '参数 a', min: 0.1, max: 1.8, step: 0.01, value: 1.4 },
+                    { id: 'b', name: '参数 b', min: 0.1, max: 0.5, step: 0.01, value: 0.3 }
+                ]
+            },
+            'clifford': {
+                title: 'Clifford吸引子',
+                description: 'Clifford吸引子是一类奇特的混沌吸引子，以其复杂的自相似结构著称。它由一组简单的三角方程定义，却能产生极其复杂的图案，展示了混沌系统的内在美感。',
+                params: [
+                    { id: 'a', name: '参数 a', min: -2, max: 2, step: 0.01, value: -1.4 },
+                    { id: 'b', name: '参数 b', min: -2, max: 2, step: 0.01, value: 1.6 },
+                    { id: 'c', name: '参数 c', min: -2, max: 2, step: 0.01, value: 1.0 },
+                    { id: 'd', name: '参数 d', min: -2, max: 2, step: 0.01, value: 0.7 }
+                ]
+            },
+            'rossler': {
+                title: 'Rössler吸引子',
+                description: 'Rössler吸引子是奥托·Rössler于1976年提出的混沌系统，比洛伦兹系统更简单，但同样能产生复杂的混沌行为。其轨迹形成单螺旋结构，常用于混沌理论研究。',
+                params: [
+                    { id: 'a', name: '参数 a', min: 0.1, max: 0.3, step: 0.01, value: 0.2 },
+                    { id: 'b', name: '参数 b', min: 0.1, max: 0.3, step: 0.01, value: 0.2 },
+                    { id: 'c', name: '参数 c', min: 3, max: 10, step: 0.1, value: 5.7 }
+                ]
+            }
+        };
+
+        // DOM元素
+        const canvas = document.getElementById('simulation-canvas');
+        const ctx = canvas.getContext('2d');
+        const systemCards = document.querySelectorAll('.system-card');
+        const systemTitle = document.getElementById('system-title');
+        const systemDescription = document.getElementById('system-description');
+        const paramsContainer = document.getElementById('params-container');
+        const playPauseBtn = document.getElementById('play-pause');
+        const resetBtn = document.getElementById('reset');
+        const randomizeBtn = document.getElementById('randomize');
+        const fullscreenBtn = document.getElementById('fullscreen');
+
+        // 系统状态
+        let currentSystem = 'three-body';
+        let isPlaying = true;
+        let animationId = null;
+        let isFullscreen = false;
+
+        // 调整Canvas大小
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+        }
+
+        // 系统模拟函数
+        const systems = {
+            'three-body': {
+                init: function() {
+                    this.gravity = 0.1;
+                    this.bodies = [
+                        {x: canvas.width/2 - 100, y: canvas.height/2, vx: 0, vy: -0.5, mass: 100, radius: 15, color: '#FF5252'},
+                        {x: canvas.width/2 + 100, y: canvas.height/2, vx: 0, vy: 0.5, mass: 100, radius: 15, color: '#448AFF'},
+                        {x: canvas.width/2, y: canvas.height/2 + 100, vx: 0.5, vy: 0, mass: 100, radius: 15, color: '#69F0AE'}
+                    ];
+                    this.trail = [];
+                    this.trailLength = 1000;
+                },
+                update: function() {
+                    // 计算引力
+                    for (let i = 0; i < this.bodies.length; i++) {
+                        for (let j = 0; j < this.bodies.length; j++) {
+                            if (i !== j) {
+                                const dx = this.bodies[j].x - this.bodies[i].x;
+                                const dy = this.bodies[j].y - this.bodies[i].y;
+                                const distance = Math.sqrt(dx * dx + dy * dy);
+                                const force = this.gravity * this.bodies[i].mass * this.bodies[j].mass / (distance * distance + 100);
+                                
+                                this.bodies[i].vx += force * dx / distance / this.bodies[i].mass;
+                                this.bodies[i].vy += force * dy / distance / this.bodies[i].mass;
+                            }
+                        }
+                    }
+                    
+                    // 更新位置
+                    for (let i = 0; i < this.bodies.length; i++) {
+                        this.bodies[i].x += this.bodies[i].vx * 0.5;
+                        this.bodies[i].y += this.bodies[i].vy * 0.5;
+                    }
+                    
+                    // 添加到轨迹
+                    this.trail.push({
+                        x1: this.bodies[0].x, y1: this.bodies[0].y,
+                        x2: this.bodies[1].x, y2: this.bodies[1].y,
+                        x3: this.bodies[2].x, y3: this.bodies[2].y
+                    });
+                    
+                    if (this.trail.length > this.trailLength) {
+                        this.trail.shift();
+                    }
+                },
+                draw: function() {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    
+                    // 绘制轨迹
+                    for (let i = 1; i < this.trail.length; i++) {
+                        const prev = this.trail[i-1];
+                        const curr = this.trail[i];
+                        
+                        // 天体1轨迹
+                        ctx.beginPath();
+                        ctx.moveTo(prev.x1, prev.y1);
+                        ctx.lineTo(curr.x1, curr.y1);
+                        ctx.strokeStyle = 'rgba(255, 82, 82, 0.05)';
+                        ctx.lineWidth = 1;
+                        ctx.stroke();
+                        
+                        // 天体2轨迹
+                        ctx.beginPath();
+                        ctx.moveTo(prev.x2, prev.y2);
+                        ctx.lineTo(curr.x2, curr.y2);
+                        ctx.strokeStyle = 'rgba(68, 138, 255, 0.05)';
+                        ctx.stroke();
+                        
+                        // 天体3轨迹
+                        ctx.beginPath();
+                        ctx.moveTo(prev.x3, prev.y3);
+                        ctx.lineTo(curr.x3, curr.y3);
+                        ctx.strokeStyle = 'rgba(105, 240, 174, 0.05)';
+                        ctx.stroke();
+                    }
+                    
+                    // 绘制天体
+                    for (let i = 0; i < this.bodies.length; i++) {
+                        const body = this.bodies[i];
+                        
+                        // 光晕效果
+                        const gradient = ctx.createRadialGradient(
+                            body.x, body.y, 0,
+                            body.x, body.y, body.radius * 2
+                        );
+                        gradient.addColorStop(0, body.color);
+                        gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+                        
+                        ctx.beginPath();
+                        ctx.arc(body.x, body.y, body.radius * 2, 0, Math.PI * 2);
+                        ctx.fillStyle = gradient;
+                        ctx.fill();
+                        
+                        // 主体
+                        ctx.beginPath();
+                        ctx.arc(body.x, body.y, body.radius, 0, Math.PI * 2);
+                        ctx.fillStyle = body.color;
+                        ctx.fill();
+                        
+                        // 高光
+                        ctx.beginPath();
+                        ctx.arc(body.x - body.radius/3, body.y - body.radius/3, body.radius/3, 0, Math.PI * 2);
+                        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+                        ctx.fill();
+                    }
+                },
+                updateParam: function(param, value) {
+                    if (param === 'gravity') this.gravity = value;
+                    if (param === 'mass1') this.bodies[0].mass = value;
+                    if (param === 'mass2') this.bodies[1].mass = value;
+                    if (param === 'mass3') this.bodies[2].mass = value;
+                }
+            },
+            'double-pendulum': {
+                init: function() {
+                    this.angle1 = Math.PI / 2;
+                    this.angle2 = Math.PI / 1.5;
+                    this.vel1 = 0;
+                    this.vel2 = 0;
+                    this.length1 = 100;
+                    this.length2 = 100;
+                    this.mass1 = 20;
+                    this.mass2 = 20;
+                    this.gravity = 0.2;
+                    this.trail = [];
+                    this.trailLength = 500;
+                    this.pivotX = canvas.width / 2;
+                    this.pivotY = canvas.height / 4;
+                },
+                update: function() {
+                    // 物理计算
+                    const num1 = -this.gravity * (2 * this.mass1 + this.mass2) * Math.sin(this.angle1);
+                    const num2 = -this.mass2 * this.gravity * Math.sin(this.angle1 - 2 * this.angle2);
+                    const num3 = -2 * Math.sin(this.angle1 - this.angle2) * this.mass2;
+                    const num4 = this.vel2 * this.vel2 * this.length2 + this.vel1 * this.vel1 * this.length1 * Math.cos(this.angle1 - this.angle2);
+                    const den = this.length1 * (2 * this.mass1 + this.mass2 - this.mass2 * Math.cos(2 * this.angle1 - 2 * this.angle2));
+                    const acc1 = (num1 + num2 + num3 * num4) / den;
+                    
+                    const num5 = 2 * Math.sin(this.angle1 - this.angle2);
+                    const num6 = this.vel1 * this.vel1 * this.length1 * (this.mass1 + this.mass2);
+                    const num7 = this.gravity * (this.mass1 + this.mass2) * Math.cos(this.angle1);
+                    const num8 = this.vel2 * this.vel2 * this.length2 * this.mass2 * Math.cos(this.angle1 - this.angle2);
+                    const den2 = this.length2 * (2 * this.mass1 + this.mass2 - this.mass2 * Math.cos(2 * this.angle1 - 2 * this.angle2));
+                    const acc2 = (num5 * (num6 + num7 + num8)) / den2;
+                    
+                    this.vel1 += acc1;
+                    this.vel2 += acc2;
+                    this.angle1 += this.vel1;
+                    this.angle2 += this.vel2;
+                    
+                    // 计算位置
+                    this.x1 = this.pivotX + this.length1 * Math.sin(this.angle1);
+                    this.y1 = this.pivotY + this.length1 * Math.cos(this.angle1);
+                    this.x2 = this.x1 + this.length2 * Math.sin(this.angle2);
+                    this.y2 = this.y1 + this.length2 * Math.cos(this.angle2);
+                    
+                    // 添加到轨迹
+                    this.trail.push({x: this.x2, y: this.y2});
+                    if (this.trail.length > this.trailLength) {
+                        this.trail.shift();
+                    }
+                },
+                draw: function() {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    
+                    // 绘制轨迹
+                    ctx.strokeStyle = '#69F0AE';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(this.trail[0].x, this.trail[0].y);
+                    
+                    for (let i = 1; i < this.trail.length; i++) {
+                        ctx.lineTo(this.trail[i].x, this.trail[i].y);
+                    }
+                    ctx.stroke();
+                    
+                    // 绘制摆杆
+                    ctx.strokeStyle = '#E0E0E0';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.moveTo(this.pivotX, this.pivotY);
+                    ctx.lineTo(this.x1, this.y1);
+                    ctx.lineTo(this.x2, this.y2);
+                    ctx.stroke();
+                    
+                    // 绘制质点
+                    ctx.fillStyle = '#FF5252';
+                    ctx.beginPath();
+                    ctx.arc(this.x1, this.y1, this.mass1 / 2, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    ctx.fillStyle = '#448AFF';
+                    ctx.beginPath();
+                    ctx.arc(this.x2, this.y2, this.mass2 / 2, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // 绘制支点
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.beginPath();
+                    ctx.arc(this.pivotX, this.pivotY, 5, 0, Math.PI * 2);
+                    ctx.fill();
+                },
+                updateParam: function(param, value) {
+                    if (param === 'gravity') this.gravity = value;
+                    if (param === 'length1') this.length1 = value;
+                    if (param === 'length2') this.length2 = value;
+                    if (param === 'mass1') this.mass1 = value;
+                    if (param === 'mass2') this.mass2 = value;
+                }
+            },
+            'lorenz': {
+                init: function() {
+                    this.x = 0.01;
+                    this.y = 0;
+                    this.z = 0;
+                    this.sigma = 10;
+                    this.rho = 28;
+                    this.beta = 8/3;
+                    this.dt = 0.01;
+                    this.scale = 8;
+                    this.trail = [];
+                    this.trailLength = 5000;
+                },
+                update: function() {
+                    const dx = this.sigma * (this.y - this.x);
+                    const dy = this.x * (this.rho - this.z) - this.y;
+                    const dz = this.x * this.y - this.beta * this.z;
+                    
+                    this.x += dx * this.dt;
+                    this.y += dy * this.dt;
+                    this.z += dz * this.dt;
+                    
+                    this.trail.push({x: this.x, y: this.y, z: this.z});
+                    if (this.trail.length > this.trailLength) {
+                        this.trail.shift();
+                    }
+                },
+                draw: function() {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    
+                    // 中心点
+                    const centerX = canvas.width / 2;
+                    const centerY = canvas.height / 2;
+                    
+                    // 绘制轨迹
+                    ctx.strokeStyle = '#69F0AE';
+                    ctx.lineWidth = 0.5;
+                    ctx.beginPath();
+                    
+                    const first = this.trail[0];
+                    ctx.moveTo(centerX + first.x * this.scale, centerY + first.z * this.scale);
+                    
+                    for (let i = 1; i < this.trail.length; i++) {
+                        const point = this.trail[i];
+                        ctx.lineTo(centerX + point.x * this.scale, centerY + point.z * this.scale);
+                    }
+                    
+                    ctx.stroke();
+                    
+                    // 绘制当前点
+                    ctx.fillStyle = '#FF5252';
+                    ctx.beginPath();
+                    ctx.arc(centerX + this.x * this.scale, centerY + this.z * this.scale, 2, 0, Math.PI * 2);
+                    ctx.fill();
+                },
+                updateParam: function(param, value) {
+                    if (param === 'sigma') this.sigma = value;
+                    if (param === 'rho') this.rho = value;
+                    if (param === 'beta') this.beta = value;
+                }
+            },
+            'henon': {
+                init: function() {
+                    this.x = 0;
+                    this.y = 0;
+                    this.a = 1.4;
+                    this.b = 0.3;
+                    this.trail = [];
+                    this.trailLength = 10000;
+                },
+                update: function() {
+                    const newX = 1 - this.a * this.x * this.x + this.y;
+                    const newY = this.b * this.x;
+                    
+                    this.x = newX;
+                    this.y = newY;
+                    
+                    this.trail.push({x: this.x, y: this.y});
+                    if (this.trail.length > this.trailLength) {
+                        this.trail.shift();
+                    }
+                },
+                draw: function() {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    
+                    // 中心点
+                    const centerX = canvas.width / 2;
+                    const centerY = canvas.height / 2;
+                    const scale = 150;
+                    
+                    // 绘制轨迹
+                    ctx.fillStyle = '#69F0AE';
+                    
+                    for (let i = 0; i < this.trail.length; i++) {
+                        const point = this.trail[i];
+                        ctx.beginPath();
+                        ctx.arc(centerX + point.x * scale, centerY - point.y * scale, 0.5, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                },
+                updateParam: function(param, value) {
+                    if (param === 'a') this.a = value;
+                    if (param === 'b') this.b = value;
+                }
+            },
+            'clifford': {
+                init: function() {
+                    this.x = 0;
+                    this.y = 0;
+                    this.a = -1.4;
+                    this.b = 1.6;
+                    this.c = 1.0;
+                    this.d = 0.7;
+                    this.trail = [];
+                    this.trailLength = 50000;
+                },
+                update: function() {
+                    const newX = Math.sin(this.a * this.y) + this.c * Math.cos(this.a * this.x);
+                    const newY = Math.sin(this.b * this.x) + this.d * Math.cos(this.b * this.y);
+                    
+                    this.x = newX;
+                    this.y = newY;
+                    
+                    this.trail.push({x: this.x, y: this.y});
+                    if (this.trail.length > this.trailLength) {
+                        this.trail.shift();
+                    }
+                },
+                draw: function() {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    
+                    // 中心点
+                    const centerX = canvas.width / 2;
+                    const centerY = canvas.height / 2;
+                    const scale = 150;
+                    
+                    // 绘制轨迹
+                    ctx.fillStyle = '#FF5252';
+                    
+                    for (let i = 0; i < this.trail.length; i++) {
+                        const point = this.trail[i];
+                        ctx.beginPath();
+                        ctx.arc(centerX + point.x * scale, centerY - point.y * scale, 0.3, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                },
+                updateParam: function(param, value) {
+                    if (param === 'a') this.a = value;
+                    if (param === 'b') this.b = value;
+                    if (param === 'c') this.c = value;
+                    if (param === 'd') this.d = value;
+                }
+            },
+            'rossler': {
+                init: function() {
+                    this.x = 0.1;
+                    this.y = 0;
+                    this.z = 0;
+                    this.a = 0.2;
+                    this.b = 0.2;
+                    this.c = 5.7;
+                    this.dt = 0.02;
+                    this.scale = 15;
+                    this.trail = [];
+                    this.trailLength = 3000;
+                },
+                update: function() {
+                    const dx = -this.y - this.z;
+                    const dy = this.x + this.a * this.y;
+                    const dz = this.b + this.z * (this.x - this.c);
+                    
+                    this.x += dx * this.dt;
+                    this.y += dy * this.dt;
+                    this.z += dz * this.dt;
+                    
+                    this.trail.push({x: this.x, y: this.y, z: this.z});
+                    if (this.trail.length > this.trailLength) {
+                        this.trail.shift();
+                    }
+                },
+                draw: function() {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    
+                    // 中心点
+                    const centerX = canvas.width / 2;
+                    const centerY = canvas.height / 2;
+                    
+                    // 绘制轨迹
+                    ctx.strokeStyle = '#448AFF';
+                    ctx.lineWidth = 0.5;
+                    ctx.beginPath();
+                    
+                    const first = this.trail[0];
+                    ctx.moveTo(centerX + first.x * this.scale, centerY - first.z * this.scale);
+                    
+                    for (let i = 1; i < this.trail.length; i++) {
+                        const point = this.trail[i];
+                        ctx.lineTo(centerX + point.x * this.scale, centerY - point.z * this.scale);
+                    }
+                    
+                    ctx.stroke();
+                    
+                    // 绘制当前点
+                    ctx.fillStyle = '#FF5252';
+                    ctx.beginPath();
+                    ctx.arc(centerX + this.x * this.scale, centerY - this.z * this.scale, 2, 0, Math.PI * 2);
+                    ctx.fill();
+                },
+                updateParam: function(param, value) {
+                    if (param === 'a') this.a = value;
+                    if (param === 'b') this.b = value;
+                    if (param === 'c') this.c = value;
+                }
+            }
+        };
+
+        // 动画循环
+        function animate() {
+            if (isPlaying) {
+                systems[currentSystem].update();
+            }
+            systems[currentSystem].draw();
+            animationId = requestAnimationFrame(animate);
+        }
+
+        // 创建参数控件
+        function createParamControls(params) {
+            paramsContainer.innerHTML = '';
+            
+            params.forEach(param => {
+                const paramDiv = document.createElement('div');
+                paramDiv.className = 'param-control';
+                
+                const label = document.createElement('label');
+                label.textContent = param.name;
+                
+                const paramRow = document.createElement('div');
+                paramRow.className = 'param-row';
+                
+                const sliderContainer = document.createElement('div');
+                sliderContainer.className = 'slider-container';
+                
+                const slider = document.createElement('input');
+                slider.type = 'range';
+                slider.min = param.min;
+                slider.max = param.max;
+                slider.step = param.step;
+                slider.value = param.value;
+                slider.dataset.param = param.id;
+                
+                const valueDisplay = document.createElement('span');
+                valueDisplay.className = 'value-display';
+                valueDisplay.textContent = param.value;
+                
+                slider.addEventListener('input', function() {
+                    valueDisplay.textContent = this.value;
+                    systems[currentSystem].updateParam(this.dataset.param, parseFloat(this.value));
+                });
+                
+                sliderContainer.appendChild(slider);
+                paramRow.appendChild(sliderContainer);
+                paramRow.appendChild(valueDisplay);
+                
+                paramDiv.appendChild(label);
+                paramDiv.appendChild(paramRow);
+                paramsContainer.appendChild(paramDiv);
+            });
+        }
+
+        // 切换系统
+        function switchSystem(system) {
+            currentSystem = system;
+            systems[system].init();
+            systemTitle.textContent = systemInfo[system].title;
+            systemDescription.textContent = systemInfo[system].description;
+            
+            // 创建新参数控件
+            createParamControls(systemInfo[system].params);
+            
+            // 更新活动状态
+            systemCards.forEach(card => {
+                if (card.dataset.system === system) {
+                    card.classList.add('active');
+                } else {
+                    card.classList.remove('active');
+                }
+            });
+        }
+
+        // 随机化当前系统
+        function randomizeSystem() {
+            systemInfo[currentSystem].params.forEach(param => {
+                const randomValue = (Math.random() * (param.max - param.min) + param.min).toFixed(2);
+                systems[currentSystem].updateParam(param.id, parseFloat(randomValue));
+                
+                // 更新UI
+                const slider = document.querySelector(`input[data-param="${param.id}"]`);
+                if (slider) {
+                    slider.value = randomValue;
+                    slider.parentElement.nextElementSibling.textContent = randomValue;
+                }
+            });
+        }
+
+        // 事件监听器
+        systemCards.forEach(card => {
+            card.addEventListener('click', () => {
+                switchSystem(card.dataset.system);
+            });
+        });
+
+        playPauseBtn.addEventListener('click', () => {
+            isPlaying = !isPlaying;
+            playPauseBtn.innerHTML = isPlaying ? 
+                '<span class="material-icons">pause</span><span>暂停</span>' : 
+                '<span class="material-icons">play_arrow</span><span>播放</span>';
+        });
+
+        resetBtn.addEventListener('click', () => {
+            systems[currentSystem].init();
+        });
+
+        randomizeBtn.addEventListener('click', randomizeSystem);
+
+        fullscreenBtn.addEventListener('click', () => {
+            const container = document.querySelector('.simulation-area');
+            
+            if (!isFullscreen) {
+                container.classList.add('fullscreen');
+                if (container.requestFullscreen) {
+                    container.requestFullscreen();
+                } else if (container.webkitRequestFullscreen) {
+                    container.webkitRequestFullscreen();
+                } else if (container.msRequestFullscreen) {
+                    container.msRequestFullscreen();
+                }
+                fullscreenBtn.innerHTML = '<span class="material-icons">fullscreen_exit</span><span>退出全屏</span>';
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                } else if (document.msExitFullscreen) {
+                    document.msExitFullscreen();
+                }
+                container.classList.remove('fullscreen');
+                fullscreenBtn.innerHTML = '<span class="material-icons">fullscreen</span><span>全屏</span>';
+            }
+            
+            isFullscreen = !isFullscreen;
+        });
+
+        // 监听全屏变化
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement) {
+                document.querySelector('.simulation-area').classList.remove('fullscreen');
+                fullscreenBtn.innerHTML = '<span class="material-icons">fullscreen</span><span>全屏</span>';
+                isFullscreen = false;
+            }
+        });
+
+        // 初始化
+        window.addEventListener('load', () => {
+            resizeCanvas();
+            switchSystem('three-body');
+            animate();
+        });
+
+        window.addEventListener('resize', () => {
+            resizeCanvas();
+        });
+    </script>
+</body>
+</html>

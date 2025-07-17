@@ -1,4 +1,4 @@
-// g++ -o TUXmod TUXmod.cpp -lncurses
+// g++ -O3 -o TUXmod TUXmod.cpp -lncurses
 
 #include <cstdlib>
 #include <cstring>

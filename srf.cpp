@@ -170,8 +170,8 @@ void draw_ime() {
 
 // 处理按键输入
 void handle_input(char ch) {
-    // F10切换中英文模式
-    if (ch == 0x1A) {  // Ctrl+Z 代替 F10
+    // Ctrl+Z 切换中英文模式
+    if (ch == 0x1A) {
         im_state.is_chinese = !im_state.is_chinese;
         im_state.input_buffer.clear();
         im_state.candidates.clear();

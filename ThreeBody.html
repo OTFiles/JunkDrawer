@@ -6,36 +6,178 @@
     <title>3D多体运动模拟器</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <style>
+        :root {
+            /* Material Design 3 颜色变量 */
+            --md-primary: #6750A4;
+            --md-on-primary: #FFFFFF;
+            --md-primary-container: #EADDFF;
+            --md-on-primary-container: #21005D;
+            --md-secondary: #625B71;
+            --md-on-secondary: #FFFFFF;
+            --md-secondary-container: #E8DEF8;
+            --md-on-secondary-container: #1D192B;
+            --md-tertiary: #7D5260;
+            --md-on-tertiary: #FFFFFF;
+            --md-tertiary-container: #FFD8E4;
+            --md-on-tertiary-container: #31111D;
+            --md-surface: #FFFBFE;
+            --md-on-surface: #1C1B1F;
+            --md-surface-variant: #E7E0EC;
+            --md-on-surface-variant: #49454F;
+            --md-outline: #79747E;
+            --md-error: #B3261E;
+            --md-on-error: #FFFFFF;
+            --md-error-container: #F9DEDC;
+            --md-on-error-container: #410E0B;
+            --md-shadow: #000000;
+            
+            /* 圆角 */
+            --md-shape-small: 4px;
+            --md-shape-medium: 8px;
+            --md-shape-large: 16px;
+            --md-shape-extra-large: 28px;
+            
+            /* 动画 */
+            --md-transition-duration: 300ms;
+            --md-transition-easing: cubic-bezier(0.4, 0, 0.2, 1);
+            
+            /* 高程 */
+            --md-elevation-1: 0px 1px 3px 1px rgba(0, 0, 0, 0.15), 0px 1px 2px 0px rgba(0, 0, 0, 0.30);
+            --md-elevation-2: 0px 2px 6px 2px rgba(0, 0, 0, 0.15), 0px 1px 2px 0px rgba(0, 0, 0, 0.30);
+            --md-elevation-3: 0px 4px 8px 3px rgba(0, 0, 0, 0.15), 0px 1px 3px 0px rgba(0, 0, 0, 0.30);
+            
+            /* 当前主题 */
+            --current-primary: var(--md-primary);
+            --current-on-primary: var(--md-on-primary);
+            --current-surface: var(--md-surface);
+            --current-on-surface: var(--md-on-surface);
+            --current-surface-variant: var(--md-surface-variant);
+            --current-outline: var(--md-outline);
+            --current-elevation: var(--md-elevation-1);
+        }
+        
+        /* 主题变体 */
+        .theme-blue {
+            --md-primary: #6750A4;
+            --md-on-primary: #FFFFFF;
+            --md-primary-container: #EADDFF;
+            --md-on-primary-container: #21005D;
+            --current-primary: var(--md-primary);
+            --current-on-primary: var(--md-on-primary);
+        }
+        
+        .theme-green {
+            --md-primary: #006C4C;
+            --md-on-primary: #FFFFFF;
+            --md-primary-container: #8BF8C6;
+            --md-on-primary-container: #002114;
+            --current-primary: var(--md-primary);
+            --current-on-primary: var(--md-on-primary);
+        }
+        
+        .theme-orange {
+            --md-primary: #914F00;
+            --md-on-primary: #FFFFFF;
+            --md-primary-container: #FFDCC3;
+            --md-on-primary-container: #2F1600;
+            --current-primary: var(--md-primary);
+            --current-on-primary: var(--md-on-primary);
+        }
+        
+        .theme-dark {
+            --md-surface: #1C1B1F;
+            --md-on-surface: #E6E1E5;
+            --md-surface-variant: #49454F;
+            --md-on-surface-variant: #CAC4D0;
+            --current-surface: var(--md-surface);
+            --current-on-surface: var(--md-on-surface);
+            --current-surface-variant: var(--md-surface-variant);
+            --current-outline: var(--md-on-surface-variant);
+        }
+        
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Roboto', sans-serif;
         }
         
         body {
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            color: #e6e6e6;
+            background-color: var(--current-surface);
+            color: var(--current-on-surface);
             min-height: 100vh;
             overflow: hidden;
+            transition: background-color var(--md-transition-duration) var(--md-transition-easing);
         }
         
+        /* 应用栏 */
+        .app-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 64px;
+            background-color: var(--current-primary);
+            color: var(--current-on-primary);
+            padding: 0 16px;
+            display: flex;
+            align-items: center;
+            z-index: 100;
+            box-shadow: var(--md-elevation-1);
+        }
+        
+        .app-bar .title {
+            font-size: 22px;
+            font-weight: 500;
+            margin-left: 16px;
+        }
+        
+        /* 主题选择器 */
+        .theme-selector {
+            display: flex;
+            gap: 8px;
+            margin-left: auto;
+            margin-right: 16px;
+        }
+        
+        .theme-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+        
+        .theme-btn:hover {
+            transform: scale(1.1);
+        }
+        
+        .theme-blue-btn { background: linear-gradient(135deg, #6750A4 50%, #EADDFF 50%); }
+        .theme-green-btn { background: linear-gradient(135deg, #006C4C 50%, #8BF8C6 50%); }
+        .theme-orange-btn { background: linear-gradient(135deg, #914F00 50%, #FFDCC3 50%); }
+        .theme-dark-btn { background: linear-gradient(135deg, #1C1B1F 50%, #49454F 50%); }
+        
+        /* 主容器 */
         .container {
             display: flex;
-            height: 100vh;
+            height: calc(100vh - 64px);
             padding: 20px;
             gap: 20px;
+            margin-top: 64px;
         }
         
         /* 3D场景容器 */
         .scene-container {
             flex: 3;
-            background: rgba(10, 15, 30, 0.7);
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            background: var(--current-surface-variant);
+            border-radius: var(--md-shape-large);
             overflow: hidden;
             position: relative;
+            box-shadow: var(--md-elevation-2);
         }
         
         #scene {
@@ -47,23 +189,25 @@
             position: absolute;
             top: 20px;
             left: 20px;
-            font-size: 24px;
-            font-weight: bold;
+            font-size: 20px;
+            font-weight: 500;
             background: rgba(0, 0, 0, 0.5);
-            padding: 8px 16px;
-            border-radius: 8px;
-            color: #4dccbd;
+            padding: 12px 20px;
+            border-radius: var(--md-shape-large);
+            color: var(--current-on-primary);
+            background-color: var(--current-primary);
             z-index: 10;
             display: flex;
             align-items: center;
             gap: 10px;
+            box-shadow: var(--md-elevation-1);
         }
         
         .mode-indicator {
             font-size: 14px;
-            padding: 4px 8px;
-            border-radius: 4px;
-            background: rgba(77, 204, 189, 0.2);
+            padding: 4px 12px;
+            border-radius: var(--md-shape-medium);
+            background: rgba(255, 255, 255, 0.2);
         }
         
         .controls {
@@ -73,153 +217,155 @@
             transform: translateX(-50%);
             display: flex;
             gap: 15px;
-            background: rgba(0, 0, 0, 0.6);
+            background: var(--current-surface);
             padding: 12px 20px;
-            border-radius: 50px;
+            border-radius: var(--md-shape-extra-large);
             z-index: 10;
+            box-shadow: var(--md-elevation-2);
         }
         
         .control-btn {
-            background: #4dccbd;
-            color: #16213e;
+            background: var(--current-primary);
+            color: var(--current-on-primary);
             border: none;
             border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            font-size: 18px;
+            width: 48px;
+            height: 48px;
+            font-size: 20px;
             cursor: pointer;
             transition: all 0.3s ease;
             display: flex;
             align-items: center;
             justify-content: center;
+            box-shadow: var(--md-elevation-1);
         }
         
         .control-btn:hover {
-            background: #3bb4a5;
             transform: scale(1.1);
+            box-shadow: var(--md-elevation-2);
         }
         
         .time-display {
             display: flex;
             align-items: center;
-            font-size: 18px;
+            font-size: 16px;
             gap: 10px;
-            background: rgba(77, 204, 189, 0.2);
-            padding: 5px 15px;
-            border-radius: 30px;
+            background: rgba(var(--current-primary-rgb), 0.1);
+            padding: 8px 20px;
+            border-radius: var(--md-shape-extra-large);
+            color: var(--current-on-surface);
         }
         
         /* 设置面板 */
         .settings-panel {
             flex: 1;
-            background: rgba(20, 30, 48, 0.8);
-            border-radius: 15px;
-            padding: 25px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            background: var(--current-surface);
+            border-radius: var(--md-shape-large);
+            padding: 16px;
+            box-shadow: var(--md-elevation-2);
             display: flex;
             flex-direction: column;
-            gap: 25px;
+            gap: 16px;
             min-width: 350px;
             overflow-y: auto;
             max-height: 100%;
         }
         
         .panel-title {
-            font-size: 24px;
-            text-align: center;
-            margin-bottom: 15px;
-            color: #4dccbd;
-            font-weight: bold;
-            border-bottom: 2px solid #4dccbd;
-            padding-bottom: 10px;
+            font-size: 22px;
+            font-weight: 500;
+            margin-bottom: 8px;
+            color: var(--current-primary);
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--current-outline);
         }
         
         .section {
-            background: rgba(10, 20, 35, 0.6);
-            border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            background: var(--current-surface);
+            border-radius: var(--md-shape-large);
+            padding: 16px;
+            box-shadow: var(--md-elevation-1);
+            border: 1px solid var(--current-outline);
         }
         
         .section-title {
-            font-size: 18px;
-            margin-bottom: 15px;
-            color: #4dccbd;
+            font-size: 16px;
+            font-weight: 500;
+            margin-bottom: 16px;
+            color: var(--current-primary);
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
         }
         
         .form-group {
-            margin-bottom: 15px;
+            margin-bottom: 16px;
         }
         
         label {
             display: block;
-            margin-bottom: 6px;
+            margin-bottom: 8px;
             font-size: 14px;
-            color: #9db4c0;
+            color: var(--current-on-surface);
+            font-weight: 500;
         }
         
         input, select, button {
             width: 100%;
-            padding: 12px;
-            border-radius: 8px;
-            border: 1px solid #2a3a5a;
-            background: rgba(15, 25, 45, 0.7);
-            color: #e6e6e6;
+            padding: 14px 16px;
+            border-radius: var(--md-shape-medium);
+            border: 1px solid var(--current-outline);
+            background: var(--current-surface);
+            color: var(--current-on-surface);
             font-size: 14px;
+            transition: all var(--md-transition-duration) var(--md-transition-easing);
+        }
+        
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--current-primary);
+            box-shadow: 0 0 0 2px rgba(var(--current-primary-rgb), 0.2);
         }
         
         button {
-            background: linear-gradient(135deg, #4dccbd, #3bb4a5);
-            color: #0a1a2a;
+            background: var(--current-primary);
+            color: var(--current-on-primary);
             border: none;
-            font-weight: bold;
+            font-weight: 500;
             cursor: pointer;
-            transition: all 0.3s ease;
-            margin-top: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: var(--md-elevation-1);
         }
         
         button:hover {
-            background: linear-gradient(135deg, #3bb4a5, #2a9d8f);
+            box-shadow: var(--md-elevation-2);
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(59, 180, 165, 0.4);
         }
         
         .delete-btn {
-            background: linear-gradient(135deg, #e63946, #d63031);
-        }
-        
-        .delete-btn:hover {
-            background: linear-gradient(135deg, #d63031, #c22525);
-            box-shadow: 0 5px 15px rgba(230, 57, 70, 0.4);
+            background: var(--md-error);
+            color: var(--md-on-error);
         }
         
         .focus-btn {
-            background: linear-gradient(135deg, #4cc9f0, #3a86ff);
-        }
-        
-        .focus-btn:hover {
-            background: linear-gradient(135deg, #3a86ff, #4361ee);
-            box-shadow: 0 5px 15px rgba(76, 201, 240, 0.4);
+            background: var(--md-secondary);
+            color: var(--md-on-secondary);
         }
         
         .lock-btn {
-            background: linear-gradient(135deg, #f72585, #b5179e);
-        }
-        
-        .lock-btn:hover {
-            background: linear-gradient(135deg, #b5179e, #7209b7);
-            box-shadow: 0 5px 15px rgba(247, 37, 133, 0.4);
+            background: var(--md-tertiary);
+            color: var(--md-on-tertiary);
         }
         
         .bodies-list {
             max-height: 300px;
             overflow-y: auto;
-            border-radius: 8px;
-            background: rgba(15, 25, 45, 0.5);
-            padding: 10px;
+            border-radius: var(--md-shape-medium);
+            background: var(--current-surface-variant);
+            padding: 8px;
         }
         
         .body-item {
@@ -228,26 +374,27 @@
             align-items: center;
             padding: 12px;
             margin-bottom: 8px;
-            background: rgba(30, 45, 70, 0.5);
-            border-radius: 8px;
+            background: var(--current-surface);
+            border-radius: var(--md-shape-medium);
             transition: all 0.3s ease;
+            border: 1px solid var(--current-outline);
         }
         
         .body-item:hover {
-            background: rgba(40, 60, 90, 0.7);
-            transform: translateX(5px);
+            background: rgba(var(--current-primary-rgb), 0.05);
+            border-color: var(--current-primary);
         }
         
         .body-info {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
             flex: 1;
         }
         
         .body-color {
-            width: 20px;
-            height: 20px;
+            width: 24px;
+            height: 24px;
             border-radius: 50%;
         }
         
@@ -257,63 +404,91 @@
         }
         
         .action-btn {
-            width: 30px;
-            height: 30px;
+            width: 36px;
+            height: 36px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 18px;
             padding: 0;
+            background: transparent;
+            border: 1px solid var(--current-outline);
+            color: var(--current-on-surface);
+            transition: all 0.2s ease;
+        }
+        
+        .action-btn:hover {
+            background: rgba(var(--current-primary-rgb), 0.1);
+            border-color: var(--current-primary);
+            color: var(--current-primary);
         }
         
         .info-box {
-            background: rgba(77, 204, 189, 0.1);
-            border-left: 4px solid #4dccbd;
+            background: rgba(var(--current-primary-rgb), 0.05);
+            border-left: 4px solid var(--current-primary);
             padding: 12px;
-            border-radius: 0 8px 8px 0;
-            margin-top: 15px;
+            border-radius: 0 var(--md-shape-medium) var(--md-shape-medium) 0;
+            margin-top: 16px;
             font-size: 14px;
+            color: var(--current-on-surface);
         }
         
         .instructions {
             position: absolute;
-            bottom: 20px;
+            top: 80px;
             right: 20px;
-            background: rgba(0, 0, 0, 0.5);
-            padding: 10px 15px;
-            border-radius: 8px;
+            background: var(--current-surface);
+            padding: 12px 16px;
+            border-radius: var(--md-shape-large);
             font-size: 14px;
             max-width: 300px;
             z-index: 10;
+            box-shadow: var(--md-elevation-2);
+            border: 1px solid var(--current-outline);
+            display: none;
+            opacity: 0.9;
         }
         
-        /* 响应式设计 */
-        @media (max-width: 1000px) {
-            .container {
-                flex-direction: column;
-                height: auto;
-            }
-            
-            .settings-panel {
-                min-width: auto;
-            }
-        }
-
-        .notification {
-            position: fixed;
+        .instructions-toggle {
+            position: absolute;
             top: 20px;
             right: 20px;
-            background: rgba(77, 204, 189, 0.9);
-            color: #0a1a2a;
-            padding: 15px 25px;
-            border-radius: 8px;
-            font-weight: bold;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            background: var(--current-surface);
+            color: var(--current-on-surface);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 15;
+            box-shadow: var(--md-elevation-1);
+            border: 1px solid var(--current-outline);
+        }
+        
+        .instructions.show {
+            display: block;
+        }
+        
+        .notification {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            background: var(--current-primary);
+            color: var(--current-on-primary);
+            padding: 14px 24px;
+            border-radius: var(--md-shape-medium);
+            font-weight: 500;
+            box-shadow: var(--md-elevation-3);
             transform: translateX(150%);
             transition: transform 0.4s ease;
             z-index: 100;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
         
         .notification.show {
@@ -324,17 +499,17 @@
             position: absolute;
             top: 20px;
             right: 20px;
-            background: rgba(247, 37, 133, 0.2);
-            color: #f72585;
-            padding: 8px 15px;
-            border-radius: 20px;
+            background: rgba(var(--md-tertiary-rgb), 0.2);
+            color: var(--md-tertiary);
+            padding: 8px 16px;
+            border-radius: var(--md-shape-extra-large);
             font-size: 14px;
             display: flex;
             align-items: center;
             gap: 8px;
             z-index: 10;
-            backdrop-filter: blur(5px);
-            border: 1px solid rgba(247, 37, 133, 0.3);
+            border: 1px solid var(--md-tertiary);
+            box-shadow: var(--md-elevation-1);
         }
         
         .lock-icon {
@@ -358,77 +533,142 @@
         .view-btn {
             flex: 1;
             min-width: 120px;
-            background: linear-gradient(135deg, #4dccbd, #3bb4a5);
-            color: white;
+            background: var(--current-primary);
+            color: var(--current-on-primary);
             border: none;
-            border-radius: 8px;
-            padding: 10px;
-            font-weight: bold;
+            border-radius: var(--md-shape-medium);
+            padding: 12px;
+            font-weight: 500;
             cursor: pointer;
             transition: all 0.3s ease;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 8px;
+            box-shadow: var(--md-elevation-1);
         }
         
         .view-btn.lock {
-            background: linear-gradient(135deg, #f72585, #b5179e);
+            background: var(--md-tertiary);
+            color: var(--md-on-tertiary);
         }
         
         .view-btn.lock.locked {
-            background: linear-gradient(135deg, #b5179e, #7209b7);
+            background: var(--md-on-tertiary-container);
+            color: var(--md-tertiary-container);
         }
         
         .view-btn:hover {
+            box-shadow: var(--md-elevation-2);
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(59, 180, 165, 0.4);
         }
         
-        .view-btn.lock:hover {
-            box-shadow: 0 5px 15px rgba(247, 37, 133, 0.4);
+        .material-icons {
+            font-size: 20px;
         }
         
-        .toggle-btn {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
+        /* 滑块样式 */
+        input[type="range"] {
+            -webkit-appearance: none;
+            height: 8px;
+            border-radius: var(--md-shape-extra-large);
+            background: var(--current-surface-variant);
+            outline: none;
         }
         
-        .toggle-btn .icon {
-            font-size: 18px;
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--current-primary);
+            cursor: pointer;
+            box-shadow: var(--md-elevation-1);
         }
         
-        .lock-mode-selector {
+        /* 全屏模式下的样式 */
+        .scene-container.fullscreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 200;
+            border-radius: 0;
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 1000px) {
+            .container {
+                flex-direction: column;
+                height: auto;
+            }
+            
+            .settings-panel {
+                min-width: auto;
+            }
+            
+            .instructions {
+                top: 70px;
+                right: 10px;
+                max-width: calc(100% - 20px);
+                font-size: 12px;
+            }
+        }
+        
+        /* 加载指示器 */
+        .loader {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            align-items: center;
+            gap: 20px;
+            color: var(--current-on-surface);
+            z-index: 20;
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            border-top: 5px solid var(--current-primary);
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .performance-warning {
+            background: var(--md-error-container);
+            color: var(--md-on-error-container);
+            padding: 10px 15px;
+            border-radius: var(--md-shape-medium);
+            font-size: 14px;
             margin-top: 10px;
-            background: rgba(15, 25, 45, 0.7);
-            border-radius: 8px;
-            padding: 10px;
-        }
-        
-        .lock-option {
-            padding: 8px;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            text-align: center;
-        }
-        
-        .lock-option:hover {
-            background: rgba(247, 37, 133, 0.2);
-        }
-        
-        .lock-option.active {
-            background: rgba(247, 37, 133, 0.4);
-            font-weight: bold;
+            display: none;
         }
     </style>
 </head>
-<body>
+<body class="theme-blue">
+    <!-- 应用栏 -->
+    <div class="app-bar">
+        <span class="material-icons">language</span>
+        <div class="title">多体运动模拟器</div>
+        
+        <div class="theme-selector">
+            <button class="theme-btn theme-blue-btn" data-theme="blue" title="蓝色主题"></button>
+            <button class="theme-btn theme-green-btn" data-theme="green" title="绿色主题"></button>
+            <button class="theme-btn theme-orange-btn" data-theme="orange" title="橙色主题"></button>
+            <button class="theme-btn theme-dark-btn" data-theme="dark" title="深色模式"></button>
+        </div>
+    </div>
+
     <div class="container">
         <!-- 3D场景容器 -->
         <div class="scene-container">
@@ -437,30 +677,48 @@
                 <span class="mode-indicator" id="mode-indicator">普通模式</span>
             </div>
             
+            <div class="loader" id="loader">
+                <div class="spinner"></div>
+                <div>正在初始化模拟器...</div>
+                <div class="performance-warning" id="performance-warning">
+                    如果加载时间过长，请尝试减少天体数量或降低轨迹长度
+                </div>
+            </div>
+            
             <div class="lock-indicator" id="lock-indicator" style="display: none;">
-                <span class="lock-icon">🔒</span>
+                <span class="lock-icon material-icons">lock</span>
                 <span id="lock-status">未锁定</span>
             </div>
             
             <div id="scene"></div>
             <div class="controls">
                 <button class="control-btn" id="play-toggle-btn">
-                    <div class="toggle-btn">
-                        <span class="icon">▶</span>
-                    </div>
+                    <span class="material-icons" id="play-icon">play_arrow</span>
                 </button>
-                <button class="control-btn" id="reset-btn">↺</button>
+                <button class="control-btn" id="reset-btn">
+                    <span class="material-icons">replay</span>
+                </button>
                 <div class="time-display">
-                    <span>时间:</span>
+                    <span class="material-icons">schedule</span>
                     <span id="time">0.0s</span>
                 </div>
+                <!-- 全屏按钮 -->
+                <button class="control-btn" id="fullscreen-btn">
+                    <span class="material-icons" id="fullscreen-icon">fullscreen</span>
+                </button>
             </div>
-            <div class="instructions">
-                <div>鼠标左键: 旋转视角</div>
-                <div>鼠标滚轮: 缩放场景</div>
-                <div>鼠标右键: 平移场景</div>
-                <div>双击天体: 聚焦该天体</div>
-                <div>天体锁定: 持续跟踪特定天体</div>
+            
+            <div class="instructions-toggle" id="instructions-toggle">
+                <span class="material-icons">help_outline</span>
+            </div>
+            
+            <div class="instructions" id="instructions">
+                <div><span class="material-icons">mouse</span> 左键: 旋转视角</div>
+                <div><span class="material-icons">mouse</span> 滚轮: 缩放场景</div>
+                <div><span class="material-icons">mouse</span> 右键: 平移场景</div>
+                <div><span class="material-icons">double_arrow</span> 点击天体: 聚焦该天体</div>
+                <div><span class="material-icons">gps_fixed</span> 天体锁定: 持续跟踪特定天体</div>
+                <div><span class="material-icons">fullscreen</span> 全屏模式: 最大化3D视图</div>
             </div>
         </div>
         
@@ -469,7 +727,10 @@
             <h2 class="panel-title">天体设置</h2>
             
             <div class="section">
-                <h3 class="section-title">模拟模式</h3>
+                <h3 class="section-title">
+                    <span class="material-icons">tune</span>
+                    模拟模式
+                </h3>
                 <div class="form-group">
                     <select id="simulation-mode">
                         <option value="normal">普通模式 (真实物理)</option>
@@ -479,16 +740,18 @@
             </div>
             
             <div class="section">
-                <h3 class="section-title">添加新天体</h3>
+                <h3 class="section-title">
+                    <span class="material-icons">add_circle</span>
+                    添加新天体
+                </h3>
                 <div class="form-group">
                     <label for="body-name">名称</label>
                     <input type="text" id="body-name" placeholder="例如：地球" value="天体1">
                 </div>
                 
                 <div class="form-group">
-                    <label for="body-mass">质量 (10²⁴ kg)</label>
+                    <label for="body-mass">质量 (10²⁴ kg) <span id="mass-value">5.97</span></label>
                     <input type="range" id="body-mass" min="0.1" max="100" step="0.1" value="5.97">
-                    <span id="mass-value">5.97</span>
                 </div>
                 
                 <div class="form-group">
@@ -514,14 +777,20 @@
                     </div>
                 </div>
                 
-                <button id="add-body">添加天体</button>
+                <button id="add-body">
+                    <span class="material-icons">add</span>
+                    添加天体
+                </button>
                 <div class="info-box">
-                    提示：所有天体的大小固定为10个单位，以点状显示
+                    提示：所有天体显示为点状，大小为固定值
                 </div>
             </div>
             
             <div class="section">
-                <h3 class="section-title">天体列表</h3>
+                <h3 class="section-title">
+                    <span class="material-icons">list</span>
+                    天体列表
+                </h3>
                 <div class="bodies-list" id="bodies-list">
                     <!-- 天体列表将通过JS动态生成 -->
                     <div class="info-box">
@@ -531,102 +800,130 @@
             </div>
             
             <div class="section">
-                <h3 class="section-title">视图控制</h3>
+                <h3 class="section-title">
+                    <span class="material-icons">visibility</span>
+                    视图控制
+                </h3>
                 <div class="view-controls">
                     <button class="view-btn" id="focus-center">
+                        <span class="material-icons">center_focus_strong</span>
                         <span>聚焦中心</span>
                     </button>
                     <button class="view-btn" id="focus-all">
-                        <span>显示所有天体</span>
+                        <span class="material-icons">zoom_out_map</span>
+                        <span>显示所有</span>
                     </button>
                     <button class="view-btn lock" id="lock-btn">
+                        <span class="material-icons">gps_fixed</span>
                         <span>锁定天体</span>
                     </button>
-                </div>
-                
-                <div class="lock-mode-selector" id="lock-mode-selector" style="display: none;">
-                    <div class="lock-option" data-mode="normal">普通锁定</div>
-                    <div class="lock-option" data-mode="spectate">观赏模式</div>
                 </div>
             </div>
             
             <div class="section">
-                <h3 class="section-title">模拟设置</h3>
+                <h3 class="section-title">
+                    <span class="material-icons">settings</span>
+                    模拟设置
+                </h3>
                 <div class="form-group">
-                    <label for="time-scale">时间缩放</label>
+                    <label for="time-scale">时间缩放 <span id="time-scale-value">1x</span></label>
                     <input type="range" id="time-scale" min="0.1" max="10" step="0.1" value="1">
-                    <span id="time-scale-value">1x</span>
                 </div>
                 
                 <div class="form-group">
-                    <label for="trail-length">轨迹长度</label>
+                    <label for="trail-length">轨迹长度 <span id="trail-length-value">100</span></label>
                     <input type="range" id="trail-length" min="10" max="500" step="10" value="100">
-                    <span id="trail-length-value">100</span>
                 </div>
                 
                 <div class="form-group">
-                    <label for="gravity-constant">引力常数 (G)</label>
+                    <label for="gravity-constant">引力常数 (G) <span id="gravity-value">10</span></label>
                     <input type="range" id="gravity-constant" min="1" max="100" step="1" value="10">
-                    <span id="gravity-value">10</span>
                 </div>
                 
-                <button id="reset-simulation">重置模拟</button>
+                <button id="reset-simulation">
+                    <span class="material-icons">restart_alt</span>
+                    重置模拟
+                </button>
             </div>
         </div>
     </div>
 
-    <div class="notification" id="notification">天体添加成功!</div>
+    <div class="notification" id="notification">
+        <span class="material-icons">check_circle</span>
+        <span>天体添加成功!</span>
+    </div>
 
     <script>
         // 初始化Three.js场景
-        const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x0a1429);
-        
-        // 创建相机
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth * 0.7 / (window.innerHeight * 0.9), 0.1, 1000);
-        camera.position.set(0, 30, 70);
-        
-        // 创建渲染器
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth * 0.7, window.innerHeight * 0.9);
-        renderer.shadowMap.enabled = true;
-        document.getElementById('scene').appendChild(renderer.domElement);
-        
-        // 添加轨道控制器（实现旋转和缩放）
-        const controls = new THREE.OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true; // 启用阻尼（惯性滑动效果）
-        controls.dampingFactor = 0.05;
-        controls.screenSpacePanning = false;
-        controls.minDistance = 20;
-        controls.maxDistance = 200;
-        
-        // 添加光源
-        const ambientLight = new THREE.AmbientLight(0x333333);
-        scene.add(ambientLight);
-        
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-        directionalLight.position.set(5, 10, 7);
-        directionalLight.castShadow = true;
-        scene.add(directionalLight);
-        
-        // 添加坐标轴辅助
-        const axesHelper = new THREE.AxesHelper(20);
-        scene.add(axesHelper);
-        
-        // 添加网格地面
-        const gridHelper = new THREE.GridHelper(100, 20, 0x2a3a5a, 0x1a2a4a);
-        scene.add(gridHelper);
-        
-        // 天体数组
+        let scene, camera, renderer, controls;
         let bodies = [];
         let trails = {};
-        let showTrails = true;
         let lockedBody = null;
-        let lockMode = null; // 'normal' 或 'spectate'
+        let lockMode = null;
         let orbitEnabled = true;
-        
-        // 记录天体的初始状态
         let initialStates = {};
+        let isPlaying = false;
+        let lastTime = 0;
+        let elapsedTime = 0;
+        let simulationMode = 'normal';
+        let trailUpdateCounter = 0;
+        const trailUpdateInterval = 3; // 每3帧更新一次轨迹
+        
+        // 性能统计
+        let frameCount = 0;
+        let lastFpsUpdate = 0;
+        
+        function init() {
+            // 创建场景
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0a1429);
+            
+            // 创建相机
+            const sceneContainer = document.querySelector('.scene-container');
+            camera = new THREE.PerspectiveCamera(75, sceneContainer.clientWidth / sceneContainer.clientHeight, 0.1, 1000);
+            camera.position.set(0, 30, 70);
+            
+            // 创建渲染器
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(sceneContainer.clientWidth, sceneContainer.clientHeight);
+            renderer.shadowMap.enabled = true;
+            document.getElementById('scene').appendChild(renderer.domElement);
+            
+            // 添加轨道控制器
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.screenSpacePanning = false;
+            controls.minDistance = 20;
+            controls.maxDistance = 200;
+            
+            // 添加光源
+            const ambientLight = new THREE.AmbientLight(0x333333);
+            ambientLight.intensity = 0.7;
+            scene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+            directionalLight.position.set(5, 10, 7);
+            directionalLight.castShadow = true;
+            scene.add(directionalLight);
+            
+            // 添加坐标轴辅助
+            const axesHelper = new THREE.AxesHelper(20);
+            scene.add(axesHelper);
+            
+            // 添加网格地面
+            const gridHelper = new THREE.GridHelper(100, 20, 0x2a3a5a, 0x1a2a4a);
+            scene.add(gridHelper);
+            
+            // 添加初始天体
+            createInitialBodies();
+            
+            // 隐藏加载指示器
+            document.getElementById('loader').style.display = 'none';
+            
+            // 开始动画循环
+            animate();
+        }
         
         // 添加初始天体
         function createInitialBodies() {
@@ -658,7 +955,7 @@
         // 显示通知
         function showNotification(message) {
             const notification = document.getElementById('notification');
-            notification.textContent = message;
+            notification.querySelector('span:last-child').textContent = message;
             notification.classList.add('show');
             
             setTimeout(() => {
@@ -668,8 +965,11 @@
         
         // 添加天体函数
         function addBody(bodyData) {
-            // 创建球体几何 - 固定大小为10
-            const geometry = new THREE.SphereGeometry(1, 32, 32);
+            // 所有天体固定为点状显示
+            const radius = 0.8; // 固定大小
+            
+            // 创建球体几何
+            const geometry = new THREE.SphereGeometry(radius, 16, 16);
             const material = new THREE.MeshPhongMaterial({ 
                 color: bodyData.color,
                 emissive: new THREE.Color(bodyData.color).multiplyScalar(0.1)
@@ -704,7 +1004,7 @@
             trails[bodyData.name] = new THREE.Group();
             scene.add(trails[bodyData.name]);
             
-            // 添加双击聚焦事件
+            // 添加点击聚焦事件
             body.userData.element = body;
             body.userData.focus = function() {
                 focusOnBody(this.element);
@@ -825,14 +1125,22 @@
                         <div class="body-color" style="background: ${bodyData.color};"></div>
                         <div>
                             <div>${bodyData.name}</div>
-                            <div style="font-size: 12px; color: #9db4c0;">质量: ${bodyData.mass} ×10²⁴kg</div>
+                            <div style="font-size: 12px; color: var(--md-on-surface-variant);">质量: ${bodyData.mass} ×10²⁴kg</div>
                         </div>
                     </div>
                     <div class="body-actions">
-                        <button class="action-btn focus-btn" data-index="${index}" title="聚焦天体">👁️</button>
-                        <button class="action-btn lock-btn" data-index="${index}" title="锁定天体">🔒</button>
-                        <button class="action-btn edit-btn" data-index="${index}" title="编辑天体">✎</button>
-                        <button class="action-btn delete-btn" data-index="${index}" title="删除天体">✕</button>
+                        <button class="action-btn focus-btn" data-index="${index}" title="聚焦天体">
+                            <span class="material-icons">visibility</span>
+                        </button>
+                        <button class="action-btn lock-btn" data-index="${index}" title="锁定天体">
+                            <span class="material-icons">gps_fixed</span>
+                        </button>
+                        <button class="action-btn edit-btn" data-index="${index}" title="编辑天体">
+                            <span class="material-icons">edit</span>
+                        </button>
+                        <button class="action-btn delete-btn" data-index="${index}" title="删除天体">
+                            <span class="material-icons">delete</span>
+                        </button>
                     </div>
                 `;
                 listContainer.appendChild(bodyItem);
@@ -851,49 +1159,35 @@
                 btn.addEventListener('click', () => focusOnBody(bodies[parseInt(btn.dataset.index)]));
             });
             
-            // 添加锁定按钮事件
             document.querySelectorAll('.lock-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
                     const body = bodies[parseInt(btn.dataset.index)];
-                    const selector = document.getElementById('lock-mode-selector');
-                    selector.style.display = 'flex';
-                    
-                    // 设置锁定模式选择器的点击事件
-                    document.querySelectorAll('.lock-option').forEach(option => {
-                        option.onclick = function() {
-                            lockBody(body, this.dataset.mode);
-                            selector.style.display = 'none';
-                        };
-                    });
+                    lockBody(body);
                 });
             });
         }
         
         // 锁定天体
-        function lockBody(body, mode = 'normal') {
+        function lockBody(body) {
             lockedBody = body;
-            lockMode = mode;
+            lockMode = 'normal';
             
             // 更新锁定按钮样式
             const lockBtn = document.getElementById('lock-btn');
             lockBtn.classList.add('locked');
-            lockBtn.innerHTML = `<span>已锁定: ${body.userData.name}</span>`;
+            lockBtn.innerHTML = `
+                <span class="material-icons">gps_fixed</span>
+                <span>已锁定: ${body.userData.name}</span>
+            `;
             
             // 显示锁定状态
             const lockIndicator = document.getElementById('lock-indicator');
             const lockStatus = document.getElementById('lock-status');
             
             lockIndicator.style.display = 'flex';
-            lockStatus.textContent = `锁定: ${body.userData.name} (${mode === 'normal' ? '普通模式' : '观赏模式'})`;
+            lockStatus.textContent = `锁定: ${body.userData.name}`;
             
-            // 如果是观赏模式，禁用轨道控制
-            if (lockMode === 'spectate') {
-                controls.enabled = false;
-                orbitEnabled = false;
-                showNotification(`已锁定天体: ${body.userData.name} (观赏模式)`);
-            } else {
-                showNotification(`已锁定天体: ${body.userData.name} (普通模式)`);
-            }
+            showNotification(`已锁定天体: ${body.userData.name}`);
         }
         
         // 解锁天体
@@ -904,17 +1198,13 @@
             // 更新锁定按钮样式
             const lockBtn = document.getElementById('lock-btn');
             lockBtn.classList.remove('locked');
-            lockBtn.innerHTML = `<span>锁定天体</span>`;
+            lockBtn.innerHTML = `
+                <span class="material-icons">gps_fixed</span>
+                <span>锁定天体</span>
+            `;
             
             // 隐藏锁定状态
             document.getElementById('lock-indicator').style.display = 'none';
-            
-            // 重新启用轨道控制
-            controls.enabled = true;
-            orbitEnabled = true;
-            
-            // 隐藏锁定模式选择器
-            document.getElementById('lock-mode-selector').style.display = 'none';
             
             showNotification("天体锁定已解除");
         }
@@ -923,45 +1213,13 @@
         function updateCameraForLockedBody() {
             if (!lockedBody) return;
             
-            if (lockMode === 'normal') {
-                // 普通模式：相机跟随天体但用户可操作
-                const offset = new THREE.Vector3(0, 30, 50);
-                const targetPosition = lockedBody.position.clone().add(offset);
-                
-                // 平滑移动相机
-                camera.position.lerp(targetPosition, 0.1);
-                controls.target.copy(lockedBody.position);
-            } else if (lockMode === 'spectate') {
-                // 观赏模式：自动调整相机位置以显示所有天体
-                adjustCameraForSpectateMode();
-            }
-        }
-        
-        // 调整相机位置以显示所有天体（观赏模式）
-        function adjustCameraForSpectateMode() {
-            if (bodies.length === 0) return;
-            
-            const boundingBox = new THREE.Box3();
-            
-            // 计算包含所有天体的边界框
-            bodies.forEach(body => {
-                boundingBox.expandByPoint(body.position);
-            });
-            
-            const center = boundingBox.getCenter(new THREE.Vector3());
-            const size = boundingBox.getSize(new THREE.Vector3());
-            
-            // 计算相机距离，确保所有天体可见
-            const maxDim = Math.max(size.x, size.y, size.z);
-            const distance = maxDim * 2.5;
-            
-            // 计算相机位置（在锁定天体的上方）
-            const offset = new THREE.Vector3(0, distance * 0.7, distance);
+            // 普通模式：相机跟随天体但用户可操作
+            const offset = new THREE.Vector3(0, 30, 50);
             const targetPosition = lockedBody.position.clone().add(offset);
             
             // 平滑移动相机
-            camera.position.lerp(targetPosition, 0.05);
-            camera.lookAt(lockedBody.position);
+            camera.position.lerp(targetPosition, 0.1);
+            controls.target.copy(lockedBody.position);
         }
         
         // 编辑天体
@@ -985,7 +1243,10 @@
             
             // 更改按钮文本
             const addButton = document.getElementById('add-body');
-            addButton.textContent = '更新天体';
+            addButton.innerHTML = `
+                <span class="material-icons">update</span>
+                更新天体
+            `;
             addButton.dataset.editIndex = index;
             
             // 聚焦到编辑的天体
@@ -1017,51 +1278,41 @@
             updateBodiesList();
         }
         
-        // 添加轨迹点
+        // 添加轨迹点（优化版本）
         function addTrailPoint(body) {
-            if (!showTrails || !trails[body.userData.name]) return;
+            if (!trails[body.userData.name]) return;
             
             const trailGroup = trails[body.userData.name];
-            const trailGeometry = new THREE.BufferGeometry();
-            const material = new THREE.LineBasicMaterial({ 
-                color: body.userData.color,
-                transparent: true,
-                opacity: 0.7
-            });
-            
-            const points = [];
-            
-            // 添加现有轨迹点
-            body.userData.trailPoints.forEach(point => {
-                points.push(point.clone());
-            });
+            const trailLength = parseInt(document.getElementById('trail-length').value);
             
             // 添加新点
-            points.push(body.position.clone());
+            body.userData.trailPoints.push(body.position.clone());
             
             // 限制轨迹长度
-            const trailLength = parseInt(document.getElementById('trail-length').value);
-            if (points.length > trailLength) {
-                points.shift();
+            if (body.userData.trailPoints.length > trailLength) {
+                body.userData.trailPoints.shift();
             }
             
-            // 更新用户数据中的轨迹点
-            body.userData.trailPoints = points;
+            // 如果轨迹点数不足2个，不渲染
+            if (body.userData.trailPoints.length < 2) return;
             
-            // 清除旧轨迹
+            // 清除旧轨迹（如果有）
             while (trailGroup.children.length > 0) {
                 trailGroup.remove(trailGroup.children[0]);
             }
             
             // 创建新轨迹
-            if (points.length > 1) {
-                trailGeometry.setFromPoints(points);
-                const trail = new THREE.Line(trailGeometry, material);
-                trailGroup.add(trail);
-            }
+            const trailGeometry = new THREE.BufferGeometry().setFromPoints(body.userData.trailPoints);
+            const material = new THREE.LineBasicMaterial({ 
+                color: body.userData.color,
+                transparent: true,
+                opacity: 0.7
+            });
+            const trail = new THREE.Line(trailGeometry, material);
+            trailGroup.add(trail);
         }
         
-        // 计算万有引力
+        // 计算万有引力（优化版本）
         function calculateGravity() {
             const G = parseInt(document.getElementById('gravity-constant').value);
             
@@ -1101,29 +1352,37 @@
             }
         }
         
-        // 更新天体位置（修改模式）
-        function updatePositionsModified(deltaTime) {
+        // 更新天体位置
+        function updatePositions(deltaTime) {
             const timeScale = parseFloat(document.getElementById('time-scale').value);
             const scaledDeltaTime = deltaTime * timeScale;
             
             bodies.forEach(body => {
                 // 在修改模式下限制加速度和速度
-                const maxAcceleration = 2.0;
-                const maxVelocity = 5.0;
-                
-                // 限制加速度大小
-                if (body.userData.acceleration.length() > maxAcceleration) {
-                    body.userData.acceleration.normalize().multiplyScalar(maxAcceleration);
-                }
-                
-                // 更新速度: v = v + a * dt
-                body.userData.velocity.add(
-                    body.userData.acceleration.clone().multiplyScalar(scaledDeltaTime)
-                );
-                
-                // 限制速度大小
-                if (body.userData.velocity.length() > maxVelocity) {
-                    body.userData.velocity.normalize().multiplyScalar(maxVelocity);
+                if (simulationMode === 'modified') {
+                    const maxAcceleration = 2.0;
+                    const maxVelocity = 5.0;
+                    
+                    // 限制加速度大小
+                    if (body.userData.acceleration.length() > maxAcceleration) {
+                        body.userData.acceleration.normalize().multiplyScalar(maxAcceleration);
+                    }
+                    
+                    // 更新速度: v = v + a * dt
+                    body.userData.velocity.add(
+                        body.userData.acceleration.clone().multiplyScalar(scaledDeltaTime)
+                    );
+                    
+                    // 限制速度大小
+                    if (body.userData.velocity.length() > maxVelocity) {
+                        body.userData.velocity.normalize().multiplyScalar(maxVelocity);
+                    }
+                } else {
+                    // 普通模式：无限制
+                    // 更新速度: v = v + a * dt
+                    body.userData.velocity.add(
+                        body.userData.acceleration.clone().multiplyScalar(scaledDeltaTime)
+                    );
                 }
                 
                 // 更新位置: p = p + v * dt
@@ -1131,260 +1390,305 @@
                     body.userData.velocity.clone().multiplyScalar(scaledDeltaTime)
                 );
                 
-                // 添加轨迹点
-                addTrailPoint(body);
-            });
-        }
-        
-        // 更新天体位置（普通模式）
-        function updatePositionsNormal(deltaTime) {
-            const timeScale = parseFloat(document.getElementById('time-scale').value);
-            const scaledDeltaTime = deltaTime * timeScale;
-            
-            bodies.forEach(body => {
-                // 更新速度: v = v + a * dt
-                body.userData.velocity.add(
-                    body.userData.acceleration.clone().multiplyScalar(scaledDeltaTime)
-                );
-                
-                // 更新位置: p = p + v * dt
-                body.position.add(
-                    body.userData.velocity.clone().multiplyScalar(scaledDeltaTime)
-                );
-                
-                // 添加轨迹点
-                addTrailPoint(body);
+                // 减少轨迹更新频率
+                trailUpdateCounter++;
+                if (trailUpdateCounter >= trailUpdateInterval) {
+                    addTrailPoint(body);
+                    trailUpdateCounter = 0;
+                }
             });
         }
         
         // 初始化控制器
-        let isPlaying = false;
-        let lastTime = 0;
-        let elapsedTime = 0;
-        let simulationMode = 'normal';
-        
-        // 播放/暂停切换按钮
-        document.getElementById('play-toggle-btn').addEventListener('click', () => {
-            isPlaying = !isPlaying;
-            const playBtn = document.getElementById('play-toggle-btn');
+        function setupEventListeners() {
+            // 播放/暂停切换按钮
+            document.getElementById('play-toggle-btn').addEventListener('click', () => {
+                isPlaying = !isPlaying;
+                const playIcon = document.getElementById('play-icon');
+                
+                if (isPlaying) {
+                    playIcon.textContent = 'pause';
+                    showNotification("模拟已开始");
+                } else {
+                    playIcon.textContent = 'play_arrow';
+                    showNotification("模拟已暂停");
+                }
+                
+                lastTime = performance.now() / 1000;
+            });
             
-            if (isPlaying) {
-                playBtn.innerHTML = '<div class="toggle-btn"><span class="icon">⏸</span></div>';
-                showNotification("模拟已开始");
-            } else {
-                playBtn.innerHTML = '<div class="toggle-btn"><span class="icon">▶</span></div>';
-                showNotification("模拟已暂停");
+            // 重置模拟状态（保留天体）
+            function resetSimulationState() {
+                // 重置每个天体到初始状态
+                bodies.forEach(body => {
+                    const bodyData = body.userData;
+                    const initialState = initialStates[bodyData.name];
+                    
+                    if (initialState) {
+                        body.position.copy(initialState.position);
+                        bodyData.velocity.copy(initialState.velocity);
+                        bodyData.acceleration.set(0, 0, 0);
+                        
+                        // 清除轨迹
+                        bodyData.trailPoints = [];
+                        if (trails[bodyData.name]) {
+                            scene.remove(trails[bodyData.name]);
+                            trails[bodyData.name] = new THREE.Group();
+                            scene.add(trails[bodyData.name]);
+                        }
+                    }
+                });
+                
+                // 重置时间
+                elapsedTime = 0;
+                document.getElementById('time').textContent = '0.0s';
+                
+                // 解锁
+                unlockBody();
+                
+                // 重置相机位置
+                camera.position.set(0, 30, 70);
+                camera.lookAt(0, 0, 0);
+                controls.target.set(0, 0, 0);
+                controls.update();
+                
+                // 暂停模拟
+                isPlaying = false;
+                document.getElementById('play-icon').textContent = 'play_arrow';
+                
+                showNotification("模拟已重置");
             }
             
-            lastTime = performance.now() / 1000;
-        });
-        
-        // 重置模拟状态（保留天体）
-        function resetSimulationState() {
-            // 重置每个天体到初始状态
-            bodies.forEach(body => {
-                const bodyData = body.userData;
-                const initialState = initialStates[bodyData.name];
-                
-                if (initialState) {
-                    body.position.copy(initialState.position);
-                    bodyData.velocity.copy(initialState.velocity);
-                    bodyData.acceleration.set(0, 0, 0);
-                    
-                    // 清除轨迹
-                    bodyData.trailPoints = [];
-                    if (trails[bodyData.name]) {
-                        scene.remove(trails[bodyData.name]);
-                        trails[bodyData.name] = new THREE.Group();
-                        scene.add(trails[bodyData.name]);
-                    }
+            document.getElementById('reset-btn').addEventListener('click', resetSimulationState);
+            document.getElementById('reset-simulation').addEventListener('click', resetSimulationState);
+            
+            // 聚焦控制
+            document.getElementById('focus-center').addEventListener('click', focusOnCenter);
+            document.getElementById('focus-all').addEventListener('click', focusOnAllBodies);
+            
+            // 锁定按钮
+            document.getElementById('lock-btn').addEventListener('click', function() {
+                if (lockedBody) {
+                    unlockBody();
+                } else {
+                    showNotification("请先选择要锁定的天体");
                 }
             });
             
-            // 重置时间
-            elapsedTime = 0;
-            document.getElementById('time').textContent = '0.0s';
+            // 添加新天体
+            document.getElementById('add-body').addEventListener('click', () => {
+                const name = document.getElementById('body-name').value || `天体${bodies.length + 1}`;
+                const mass = parseFloat(document.getElementById('body-mass').value);
+                const color = document.getElementById('body-color').value;
+                
+                const position = [
+                    parseFloat(document.getElementById('pos-x').value) || 0,
+                    parseFloat(document.getElementById('pos-y').value) || 0,
+                    parseFloat(document.getElementById('pos-z').value) || 0
+                ];
+                
+                const velocity = [
+                    parseFloat(document.getElementById('vel-x').value) || 0,
+                    parseFloat(document.getElementById('vel-y').value) || 0,
+                    parseFloat(document.getElementById('vel-z').value) || 0
+                ];
+                
+                // 检查编辑模式
+                const addButton = document.getElementById('add-body');
+                if (addButton.dataset.editIndex !== undefined) {
+                    const index = parseInt(addButton.dataset.editIndex);
+                    deleteBody(index);
+                    delete addButton.dataset.editIndex;
+                    addButton.innerHTML = `
+                        <span class="material-icons">add</span>
+                        添加天体
+                    `;
+                }
+                
+                addBody({
+                    name,
+                    mass,
+                    color,
+                    position,
+                    velocity
+                });
+            });
             
-            // 解锁
-            unlockBody();
+            // 更新滑块值显示
+            document.getElementById('body-mass').addEventListener('input', function() {
+                document.getElementById('mass-value').textContent = this.value;
+            });
             
-            // 重置相机位置
-            camera.position.set(0, 30, 70);
-            camera.lookAt(0, 0, 0);
-            controls.target.set(0, 0, 0);
-            controls.update();
+            document.getElementById('time-scale').addEventListener('input', function() {
+                document.getElementById('time-scale-value').textContent = this.value + 'x';
+            });
             
-            // 暂停模拟
-            isPlaying = false;
-            document.getElementById('play-toggle-btn').innerHTML = '<div class="toggle-btn"><span class="icon">▶</span></div>';
+            document.getElementById('trail-length').addEventListener('input', function() {
+                document.getElementById('trail-length-value').textContent = this.value;
+            });
             
-            showNotification("模拟已重置");
+            document.getElementById('gravity-constant').addEventListener('input', function() {
+                document.getElementById('gravity-value').textContent = this.value;
+            });
+            
+            // 模式切换
+            document.getElementById('simulation-mode').addEventListener('change', function() {
+                simulationMode = this.value;
+                document.getElementById('mode-indicator').textContent = 
+                    simulationMode === 'normal' ? '普通模式' : '修改模式';
+                showNotification(`已切换到${simulationMode === 'normal' ? '普通模式' : '修改模式'}`);
+            });
+            
+            // 双击天体聚焦功能
+            renderer.domElement.addEventListener('dblclick', (event) => {
+                // 获取鼠标位置
+                const mouse = new THREE.Vector2();
+                const rect = renderer.domElement.getBoundingClientRect();
+                mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+                mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+                
+                // 设置射线投射器
+                const raycaster = new THREE.Raycaster();
+                raycaster.setFromCamera(mouse, camera);
+                
+                // 计算相交物体
+                const intersects = raycaster.intersectObjects(bodies);
+                
+                if (intersects.length > 0) {
+                    // 聚焦到第一个被击中的天体
+                    focusOnBody(intersects[0].object);
+                }
+            });
+            
+            // 移动端点击聚焦功能
+            let lastTap = 0;
+            renderer.domElement.addEventListener('touchend', (event) => {
+                const currentTime = new Date().getTime();
+                const tapLength = currentTime - lastTap;
+                
+                // 检测是否为双击
+                if (tapLength < 300 && tapLength > 0) {
+                    // 获取触摸位置
+                    const touch = event.changedTouches[0];
+                    const rect = renderer.domElement.getBoundingClientRect();
+                    
+                    const mouse = new THREE.Vector2();
+                    mouse.x = ((touch.clientX - rect.left) / rect.width) * 2 - 1;
+                    mouse.y = -((touch.clientY - rect.top) / rect.height) * 2 + 1;
+                    
+                    // 设置射线投射器
+                    const raycaster = new THREE.Raycaster();
+                    raycaster.setFromCamera(mouse, camera);
+                    
+                    // 计算相交物体
+                    const intersects = raycaster.intersectObjects(bodies);
+                    
+                    if (intersects.length > 0) {
+                        // 聚焦到第一个被击中的天体
+                        focusOnBody(intersects[0].object);
+                    }
+                    
+                    // 阻止默认行为
+                    event.preventDefault();
+                }
+                
+                lastTap = currentTime;
+            });
+            
+            // 主题切换
+            document.querySelectorAll('.theme-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const theme = this.dataset.theme;
+                    document.body.className = `theme-${theme}`;
+                    
+                    // 更新场景背景
+                    if (theme === 'dark') {
+                        scene.background = new THREE.Color(0x121212);
+                    } else {
+                        scene.background = new THREE.Color(0x0a1429);
+                    }
+                    
+                    showNotification(`已切换到${theme}主题`);
+                });
+            });
+            
+            // 全屏功能
+            document.getElementById('fullscreen-btn').addEventListener('click', toggleFullscreen);
+            
+            // 窗口大小调整
+            window.addEventListener('resize', onWindowResize);
+            
+            // 提示框切换
+            document.getElementById('instructions-toggle').addEventListener('click', () => {
+                const instructions = document.getElementById('instructions');
+                instructions.classList.toggle('show');
+            });
         }
         
-        document.getElementById('reset-btn').addEventListener('click', resetSimulationState);
-        document.getElementById('reset-simulation').addEventListener('click', resetSimulationState);
-        
-        // 聚焦控制
-        document.getElementById('focus-center').addEventListener('click', focusOnCenter);
-        document.getElementById('focus-all').addEventListener('click', focusOnAllBodies);
-        
-        // 锁定按钮
-        document.getElementById('lock-btn').addEventListener('click', function() {
-            if (lockedBody) {
-                unlockBody();
-            } else {
-                // 显示锁定模式选择器
-                const selector = document.getElementById('lock-mode-selector');
-                selector.style.display = selector.style.display === 'flex' ? 'none' : 'flex';
-            }
-        });
-        
-        // 锁定模式选择
-        document.querySelectorAll('.lock-option').forEach(option => {
-            option.addEventListener('click', function() {
-                const mode = this.dataset.mode;
-                const selector = document.getElementById('lock-mode-selector');
-                selector.style.display = 'none';
-                
-                // 显示天体列表供选择
-                const bodyList = document.getElementById('bodies-list');
-                bodyList.innerHTML = '';
-                
-                if (bodies.length === 0) {
-                    bodyList.innerHTML = `
-                        <div class="info-box">
-                            当前没有天体。请先添加天体。
-                        </div>
-                    `;
-                    return;
+        function toggleFullscreen() {
+            const sceneContainer = document.querySelector('.scene-container');
+            
+            if (!document.fullscreenElement) {
+                // 进入全屏模式
+                if (sceneContainer.requestFullscreen) {
+                    sceneContainer.requestFullscreen();
+                } else if (sceneContainer.mozRequestFullScreen) { /* Firefox */
+                    sceneContainer.mozRequestFullScreen();
+                } else if (sceneContainer.webkitRequestFullscreen) { /* Chrome, Safari and Opera */
+                    sceneContainer.webkitRequestFullscreen();
+                } else if (sceneContainer.msRequestFullscreen) { /* IE/Edge */
+                    sceneContainer.msRequestFullscreen();
                 }
                 
-                // 添加标题
-                const title = document.createElement('div');
-                title.className = 'section-title';
-                title.textContent = `选择要锁定的天体 (${mode === 'normal' ? '普通模式' : '观赏模式'})`;
-                bodyList.appendChild(title);
+                sceneContainer.classList.add('fullscreen');
+                showNotification("已进入全屏模式");
+            } else {
+                // 退出全屏模式
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.mozCancelFullScreen) { /* Firefox */
+                    document.mozCancelFullScreen();
+                } else if (document.webkitExitFullscreen) { /* Chrome, Safari and Opera */
+                    document.webkitExitFullscreen();
+                } else if (document.msExitFullscreen) { /* IE/Edge */
+                    document.msExitFullscreen();
+                }
                 
-                bodies.forEach((body, index) => {
-                    const bodyData = body.userData;
-                    const bodyItem = document.createElement('div');
-                    bodyItem.className = 'body-item';
-                    bodyItem.innerHTML = `
-                        <div class="body-info">
-                            <div class="body-color" style="background: ${bodyData.color};"></div>
-                            <div>
-                                <div>${bodyData.name}</div>
-                            </div>
-                        </div>
-                        <button class="action-btn lock-btn" data-index="${index}" data-mode="${mode}">锁定</button>
-                    `;
-                    bodyList.appendChild(bodyItem);
-                });
-                
-                // 添加取消按钮
-                const cancelBtn = document.createElement('button');
-                cancelBtn.textContent = '取消';
-                cancelBtn.style.marginTop = '10px';
-                cancelBtn.addEventListener('click', () => {
-                    updateBodiesList();
-                });
-                bodyList.appendChild(cancelBtn);
-                
-                // 添加锁定事件
-                document.querySelectorAll('.lock-btn').forEach(btn => {
-                    btn.addEventListener('click', () => {
-                        const index = parseInt(btn.dataset.index);
-                        const mode = btn.dataset.mode;
-                        lockBody(bodies[index], mode);
-                        updateBodiesList();
-                    });
-                });
-            });
-        });
-        
-        // 解锁功能
-        document.getElementById('lock-indicator').addEventListener('click', unlockBody);
-        
-        // 添加新天体
-        document.getElementById('add-body').addEventListener('click', () => {
-            const name = document.getElementById('body-name').value || `天体${bodies.length + 1}`;
-            const mass = parseFloat(document.getElementById('body-mass').value);
-            const color = document.getElementById('body-color').value;
-            
-            const position = [
-                parseFloat(document.getElementById('pos-x').value) || 0,
-                parseFloat(document.getElementById('pos-y').value) || 0,
-                parseFloat(document.getElementById('pos-z').value) || 0
-            ];
-            
-            const velocity = [
-                parseFloat(document.getElementById('vel-x').value) || 0,
-                parseFloat(document.getElementById('vel-y').value) || 0,
-                parseFloat(document.getElementById('vel-z').value) || 0
-            ];
-            
-            // 检查编辑模式
-            const addButton = document.getElementById('add-body');
-            if (addButton.dataset.editIndex !== undefined) {
-                const index = parseInt(addButton.dataset.editIndex);
-                deleteBody(index);
-                delete addButton.dataset.editIndex;
-                addButton.textContent = '添加天体';
+                sceneContainer.classList.remove('fullscreen');
+                showNotification("已退出全屏模式");
             }
-            
-            addBody({
-                name,
-                mass,
-                color,
-                position,
-                velocity
-            });
-        });
+        }
         
-        // 更新滑块值显示
-        document.getElementById('body-mass').addEventListener('input', function() {
-            document.getElementById('mass-value').textContent = this.value;
-        });
-        
-        document.getElementById('time-scale').addEventListener('input', function() {
-            document.getElementById('time-scale-value').textContent = this.value + 'x';
-        });
-        
-        document.getElementById('trail-length').addEventListener('input', function() {
-            document.getElementById('trail-length-value').textContent = this.value;
-        });
-        
-        document.getElementById('gravity-constant').addEventListener('input', function() {
-            document.getElementById('gravity-value').textContent = this.value;
-        });
-        
-        // 模式切换
-        document.getElementById('simulation-mode').addEventListener('change', function() {
-            simulationMode = this.value;
-            document.getElementById('mode-indicator').textContent = 
-                simulationMode === 'normal' ? '普通模式' : '修改模式';
-            showNotification(`已切换到${simulationMode === 'normal' ? '普通模式' : '修改模式'}`);
-        });
-        
-        // 双击天体聚焦功能
-        renderer.domElement.addEventListener('dblclick', (event) => {
-            // 获取鼠标位置
-            const mouse = new THREE.Vector2();
-            mouse.x = (event.clientX / renderer.domElement.clientWidth) * 2 - 1;
-            mouse.y = - (event.clientY / renderer.domElement.clientHeight) * 2 + 1;
-            
-            // 设置射线投射器
-            const raycaster = new THREE.Raycaster();
-            raycaster.setFromCamera(mouse, camera);
-            
-            // 计算相交物体
-            const intersects = raycaster.intersectObjects(bodies);
-            
-            if (intersects.length > 0) {
-                // 聚焦到第一个被击中的天体
-                focusOnBody(intersects[0].object);
+        // 更新全屏图标
+        function updateFullscreenIcon() {
+            const icon = document.getElementById('fullscreen-icon');
+            if (document.fullscreenElement) {
+                icon.textContent = 'fullscreen_exit';
+            } else {
+                icon.textContent = 'fullscreen';
             }
-        });
+        }
+        
+        // 监听全屏变化事件
+        document.addEventListener('fullscreenchange', updateFullscreenIcon);
+        document.addEventListener('webkitfullscreenchange', updateFullscreenIcon);
+        document.addEventListener('mozfullscreenchange', updateFullscreenIcon);
+        document.addEventListener('MSFullscreenChange', updateFullscreenIcon);
+        
+        // 窗口大小调整处理
+        function onWindowResize() {
+            const sceneContainer = document.querySelector('.scene-container');
+            
+            if (!document.fullscreenElement) {
+                camera.aspect = sceneContainer.clientWidth / sceneContainer.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(sceneContainer.clientWidth, sceneContainer.clientHeight);
+            } else {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            }
+        }
         
         // 动画循环
         function animate() {
@@ -1394,15 +1698,24 @@
             const deltaTime = lastTime ? currentTime - lastTime : 0;
             lastTime = currentTime;
             
+            // 更新FPS计数器
+            frameCount++;
+            if (currentTime - lastFpsUpdate >= 1) {
+                const fps = Math.round(frameCount / (currentTime - lastFpsUpdate));
+                // 如果FPS低于30，显示性能警告
+                if (fps < 30) {
+                    document.getElementById('performance-warning').style.display = 'block';
+                } else {
+                    document.getElementById('performance-warning').style.display = 'none';
+                }
+                frameCount = 0;
+                lastFpsUpdate = currentTime;
+            }
+            
             if (isPlaying) {
                 // 更新物理模拟
                 calculateGravity();
-                
-                if (simulationMode === 'normal') {
-                    updatePositionsNormal(deltaTime);
-                } else {
-                    updatePositionsModified(deltaTime);
-                }
+                updatePositions(deltaTime);
                 
                 // 更新时间显示
                 elapsedTime += deltaTime * parseFloat(document.getElementById('time-scale').value);
@@ -1423,16 +1736,19 @@
             renderer.render(scene, camera);
         }
         
-        // 窗口大小调整
-        window.addEventListener('resize', () => {
-            camera.aspect = (window.innerWidth * 0.7) / (window.innerHeight * 0.9);
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth * 0.7, window.innerHeight * 0.9);
-        });
+        // 初始化加载状态和超时警告
+        setTimeout(() => {
+            const loader = document.getElementById('loader');
+            if (loader.style.display !== 'none') {
+                document.getElementById('performance-warning').style.display = 'block';
+            }
+        }, 3000);
         
-        // 初始化
-        createInitialBodies();
-        animate();
+        // 初始化应用
+        window.addEventListener('load', () => {
+            init();
+            setupEventListeners();
+        });
     </script>
 </body>
 </html>
