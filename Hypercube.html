@@ -3,42 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>高维立方</title>
+    <title>高维立方 - Material Design 3主题扩展</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
         :root {
+            /* 默认主题 - Material Design 3深色主题 */
             --md-primary: #6750A4;
+            --md-secondary: #7D5260;
+            --md-primary-light: #D0BCFF;
+            --md-secondary-light: #EFB8C8;
+            
             --md-on-primary: #FFFFFF;
-            --md-primary-container: #EADDFF;
-            --md-on-primary-container: #21005D;
-            --md-secondary: #625B71;
             --md-on-secondary: #FFFFFF;
-            --md-secondary-container: #E8DEF8;
-            --md-on-secondary-container: #1D192B;
-            --md-tertiary: #7D5260;
-            --md-on-tertiary: #FFFFFF;
-            --md-tertiary-container: #FFD8E4;
-            --md-on-tertiary-container: #31111D;
+            
             --md-surface: #141218;
-            --md-on-surface: #E6E0E9;
-            --md-surface-variant: #49454F;
-            --md-on-surface-variant: #CAC4D0;
-            --md-outline: #938F99;
-            --md-surface-dim: #141218;
-            --md-surface-bright: #3B383E;
-            --md-surface-container-lowest: #0F0D13;
-            --md-surface-container-low: #1D1B20;
             --md-surface-container: #211F26;
             --md-surface-container-high: #2B2930;
-            --md-surface-container-highest: #36343B;
+            --md-on-surface: #E6E0E9;
+            --md-on-surface-variant: #CAC4D0;
+            --md-outline: #938F99;
             
-            --md-shadow-1: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
-            --md-shadow-2: 0 3px 6px rgba(0,0,0,0.16), 0 3px 6px rgba(0,0,0,0.23);
-            --md-shadow-3: 0 10px 20px rgba(0,0,0,0.19), 0 6px 6px rgba(0,0,0,0.23);
-            --md-shadow-4: 0 14px 28px rgba(0,0,0,0.25), 0 10px 10px rgba(0,0,0,0.22);
-            --md-shadow-5: 0 19px 38px rgba(0,0,0,0.30), 0 15px 12px rgba(0,0,0,0.22);
+            --scene-background: #050a20;
+            --scene-axes-color: #ffffff;
+            --scene-light-ambient: #ffffff;
+            --scene-light-directional: #ffffff;
+            --scene-light-directional2: #64b5f6;
+            --vertex-base-color: #64b5f6;
+            --edge-base-color: #64b5f6;
+            
+            /* 背景渐变 */
+            --md-background-gradient: radial-gradient(circle at top right, var(--md-primary), var(--md-secondary));
         }
         
         * {
@@ -49,23 +45,26 @@
         }
         
         body {
-            background: var(--md-surface);
+            background: var(--md-background-gradient);
             color: var(--md-on-surface);
             height: 100vh;
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            transition: background 0.8s ease, color 0.8s ease;
         }
         
         header {
             padding: 16px 24px;
-            background: var(--md-surface-container);
-            border-bottom: 1px solid var(--md-outline);
+            background: rgba(var(--md-surface-container-rgb), 0.8);
+            border-bottom: 1px solid rgba(var(--md-outline-rgb), 0.5);
             display: flex;
             justify-content: space-between;
             align-items: center;
             flex-shrink: 0;
-            box-shadow: var(--md-shadow-1);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+            transition: all 0.8s ease;
+            backdrop-filter: blur(10px);
         }
         
         .logo {
@@ -76,34 +75,39 @@
         
         .logo-icon {
             font-size: 32px;
-            background: linear-gradient(135deg, var(--md-primary), var(--md-tertiary));
+            background: linear-gradient(135deg, var(--md-primary), var(--md-secondary));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+            transition: background 0.8s ease;
         }
         
         .logo-text {
             font-size: 22px;
             font-weight: bold;
-            background: linear-gradient(to right, var(--md-primary), var(--md-tertiary));
+            background: linear-gradient(to right, var(--md-primary), var(--md-secondary));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+            transition: background 0.8s ease;
         }
         
         .subtitle {
             font-size: 16px;
             color: var(--md-on-surface-variant);
             font-weight: 500;
+            transition: color 0.8s ease;
         }
         
         .dimension-tag {
             display: inline-block;
-            background: var(--md-tertiary-container);
-            color: var(--md-on-tertiary-container);
+            background: rgba(var(--md-secondary-light-rgb), 0.2);
+            color: var(--md-on-primary);
             padding: 4px 12px;
             border-radius: 20px;
             font-size: 14px;
             margin: 0 4px;
             font-weight: 500;
+            transition: all 0.8s ease;
+            backdrop-filter: blur(5px);
         }
         
         #main-container {
@@ -112,32 +116,39 @@
             overflow: hidden;
             padding: 16px;
             gap: 16px;
+            transition: padding 0.8s ease;
         }
         
         #canvas-container {
             flex: 1;
-            border-radius: 16px;
+            border-radius: 24px;
             overflow: hidden;
-            box-shadow: var(--md-shadow-3);
-            background: var(--md-surface-container-lowest);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.19);
+            background: rgba(var(--md-surface-container-lowest-rgb), 0.8);
             position: relative;
+            transition: all 0.8s ease;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(var(--md-outline-rgb), 0.3);
         }
         
         #ui-container {
             width: 380px;
             display: flex;
             flex-direction: column;
-            background: var(--md-surface-container);
-            border-radius: 16px;
-            border: 1px solid var(--md-outline);
-            box-shadow: var(--md-shadow-2);
+            background: rgba(var(--md-surface-container-rgb), 0.8);
+            border-radius: 24px;
+            border: 1px solid rgba(var(--md-outline-rgb), 0.3);
+            box-shadow: 0 3px 6px rgba(0,0,0,0.16);
             overflow: hidden;
+            transition: all 0.8s ease;
+            backdrop-filter: blur(10px);
         }
         
         .ui-header {
             padding: 16px 24px;
-            background: var(--md-surface-container-high);
-            border-bottom: 1px solid var(--md-outline);
+            background: rgba(var(--md-surface-container-high-rgb), 0.8);
+            border-bottom: 1px solid rgba(var(--md-outline-rgb), 0.3);
+            transition: all 0.8s ease;
         }
         
         .ui-title {
@@ -147,6 +158,7 @@
             align-items: center;
             gap: 12px;
             font-weight: 500;
+            transition: color 0.8s ease;
         }
         
         .ui-content {
@@ -159,10 +171,12 @@
         }
         
         .control-group {
-            background: var(--md-surface-container-high);
+            background: rgba(var(--md-surface-container-high-rgb), 0.8);
             padding: 20px;
-            border-radius: 16px;
-            border: 1px solid var(--md-outline);
+            border-radius: 24px;
+            border: 1px solid rgba(var(--md-outline-rgb), 0.2);
+            transition: all 0.8s ease;
+            backdrop-filter: blur(5px);
         }
         
         .group-title {
@@ -173,6 +187,7 @@
             align-items: center;
             gap: 10px;
             font-weight: 500;
+            transition: color 0.8s ease;
         }
         
         .control-row {
@@ -188,6 +203,7 @@
         .row-title {
             color: var(--md-on-surface-variant);
             font-weight: 500;
+            transition: color 0.8s ease;
         }
         
         .row-value {
@@ -196,27 +212,30 @@
             display: flex;
             align-items: center;
             gap: 8px;
+            transition: color 0.8s ease;
         }
         
         .value-input {
-            background: var(--md-surface-container);
-            border: 1px solid var(--md-outline);
+            background: rgba(var(--md-surface-container-rgb), 0.8);
+            border: 1px solid rgba(var(--md-outline-rgb), 0.3);
             color: var(--md-on-surface);
             border-radius: 8px;
             padding: 4px 8px;
             width: 70px;
             text-align: center;
             font-weight: 500;
+            transition: all 0.8s ease;
         }
         
         input[type="range"] {
             width: 100%;
             height: 8px;
-            background: var(--md-surface-container);
+            background: rgba(var(--md-surface-container-rgb), 0.8);
             border-radius: 4px;
             outline: none;
             -webkit-appearance: none;
-            border: 1px solid var(--md-outline);
+            border: 1px solid rgba(var(--md-outline-rgb), 0.3);
+            transition: all 0.8s ease;
         }
         
         input[type="range"]::-webkit-slider-thumb {
@@ -226,8 +245,9 @@
             border-radius: 50%;
             background: var(--md-primary);
             cursor: pointer;
-            box-shadow: 0 0 8px rgba(103, 80, 164, 0.5);
+            box-shadow: 0 0 8px rgba(var(--md-primary-light-rgb), 0.5);
             border: 2px solid var(--md-on-primary);
+            transition: all 0.8s ease;
         }
         
         .button-group {
@@ -239,31 +259,31 @@
         
         button {
             padding: 12px 16px;
-            background: var(--md-primary);
+            background: linear-gradient(to right, var(--md-primary), var(--md-secondary));
             border: none;
             border-radius: 12px;
             color: var(--md-on-primary);
             font-weight: 500;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: all 0.3s ease;
             font-size: 14px;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 8px;
-            box-shadow: var(--md-shadow-1);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
         
         button:hover {
-            background: var(--md-primary-container);
-            color: var(--md-on-primary-container);
-            box-shadow: var(--md-shadow-2);
+            background: linear-gradient(to right, var(--md-primary-light), var(--md-secondary-light));
+            color: var(--md-on-primary);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
             transform: translateY(-2px);
         }
         
         button:active {
             transform: translateY(1px);
-            box-shadow: var(--md-shadow-1);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.2);
         }
         
         .preset-buttons {
@@ -274,7 +294,7 @@
         }
         
         .preset-btn {
-            background: var(--md-surface-container);
+            background: rgba(var(--md-surface-container-rgb), 0.8);
             color: var(--md-on-surface);
         }
         
@@ -291,12 +311,14 @@
             font-size: 14px;
             gap: 10px;
             font-weight: 500;
+            transition: color 0.8s ease;
         }
         
         .color-dot {
             width: 16px;
             height: 16px;
             border-radius: 50%;
+            transition: background 0.8s ease;
         }
         
         .status-indicator {
@@ -305,9 +327,10 @@
             gap: 10px;
             margin-top: 16px;
             padding: 12px;
-            background: var(--md-surface-container-high);
+            background: rgba(var(--md-surface-container-high-rgb), 0.8);
             border-radius: 12px;
             border-left: 4px solid var(--md-primary);
+            transition: all 0.8s ease;
         }
         
         .indicator-dot {
@@ -331,8 +354,9 @@
             flex-direction: column;
             gap: 6px;
             backdrop-filter: blur(5px);
-            border: 1px solid var(--md-outline);
-            box-shadow: var(--md-shadow-1);
+            border: 1px solid rgba(var(--md-outline-rgb), 0.3);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            transition: all 0.8s ease;
         }
         
         .perf-label {
@@ -346,9 +370,11 @@
             text-align: center;
             color: var(--md-on-surface-variant);
             font-size: 14px;
-            background: var(--md-surface-container);
-            border-top: 1px solid var(--md-outline);
+            background: rgba(var(--md-surface-container-rgb), 0.8);
+            border-top: 1px solid rgba(var(--md-outline-rgb), 0.5);
             flex-shrink: 0;
+            transition: all 0.8s ease;
+            backdrop-filter: blur(10px);
         }
         
         /* 滚动条样式 */
@@ -357,13 +383,15 @@
         }
         
         .ui-content::-webkit-scrollbar-track {
-            background: var(--md-surface-container-high);
+            background: rgba(var(--md-surface-container-high-rgb), 0.5);
             border-radius: 4px;
+            transition: all 0.8s ease;
         }
         
         .ui-content::-webkit-scrollbar-thumb {
             background: var(--md-primary);
             border-radius: 4px;
+            transition: background 0.8s ease;
         }
         
         .dimension-input-container {
@@ -373,23 +401,26 @@
         }
         
         .dimension-input {
-            background: var(--md-surface-container-high);
-            border: 1px solid var(--md-outline);
+            background: rgba(var(--md-surface-container-high-rgb), 0.8);
+            border: 1px solid rgba(var(--md-outline-rgb), 0.3);
             color: var(--md-on-surface);
             border-radius: 8px;
             padding: 8px 12px;
             width: 100px;
             text-align: center;
             font-weight: 500;
+            transition: all 0.8s ease;
         }
         
         .rotation-plane {
             margin-bottom: 20px;
             padding: 12px;
-            background: var(--md-surface-container);
-            border-radius: 12px;
-            border: 1px solid var(--md-outline);
+            background: rgba(var(--md-surface-container-rgb), 0.8);
+            border-radius: 16px;
+            border: 1px solid rgba(var(--md-outline-rgb), 0.3);
             position: relative;
+            transition: all 0.8s ease;
+            backdrop-filter: blur(5px);
         }
         
         .plane-header {
@@ -401,6 +432,7 @@
         .plane-title {
             color: var(--md-on-surface);
             font-weight: 500;
+            transition: color 0.8s ease;
         }
         
         .axis-selector {
@@ -410,13 +442,14 @@
         
         .axis-btn {
             padding: 6px 10px;
-            background: var(--md-surface-container-high);
-            border: 1px solid var(--md-outline);
+            background: rgba(var(--md-surface-container-high-rgb), 0.8);
+            border: 1px solid rgba(var(--md-outline-rgb), 0.3);
             color: var(--md-on-surface);
             border-radius: 8px;
             cursor: pointer;
             font-size: 12px;
             font-weight: 500;
+            transition: all 0.8s ease;
         }
         
         .axis-btn.active {
@@ -445,8 +478,7 @@
         .add-plane-btn {
             width: 100%;
             margin-top: 10px;
-            background: var(--md-secondary-container);
-            color: var(--md-on-secondary-container);
+            background: linear-gradient(to right, var(--md-secondary), var(--md-primary));
         }
         
         .delete-plane-btn {
@@ -459,9 +491,17 @@
             border: none;
             font-size: 12px;
             cursor: pointer;
+            transition: color 0.8s ease;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         
         .delete-plane-btn:hover {
+            background: rgba(255,255,255,0.1);
             color: var(--md-on-surface);
         }
         
@@ -482,13 +522,34 @@
             gap: 4px;
             font-size: 12px;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.3s;
             border: 2px solid transparent;
+            background: rgba(var(--md-surface-container-rgb), 0.8);
+            backdrop-filter: blur(5px);
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .theme-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, var(--theme-primary), var(--theme-secondary));
+            opacity: 0.7;
+            z-index: 1;
+        }
+        
+        .theme-btn > * {
+            position: relative;
+            z-index: 2;
         }
         
         .theme-btn.active {
             border-color: var(--md-on-primary);
-            box-shadow: var(--md-shadow-2);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
             transform: translateY(-2px);
         }
         
@@ -496,6 +557,7 @@
             width: 24px;
             height: 24px;
             border-radius: 50%;
+            background: white;
         }
         
         @media (max-width: 900px) {
@@ -566,28 +628,28 @@
                     <div class="group-title">🎨 主题设置</div>
                     
                     <div class="theme-selector">
-                        <div class="theme-btn active" data-theme="default">
-                            <div class="theme-dot" style="background: linear-gradient(135deg, #6750A4, #7D5260);"></div>
+                        <div class="theme-btn active" data-theme="default" style="--theme-primary: #6750A4; --theme-secondary: #7D5260;">
+                            <div class="theme-dot"></div>
                             <span>默认深色</span>
                         </div>
-                        <div class="theme-btn" data-theme="blue">
-                            <div class="theme-dot" style="background: linear-gradient(135deg, #2196F3, #03A9F4);"></div>
+                        <div class="theme-btn" data-theme="blue" style="--theme-primary: #2196F3; --theme-secondary: #03A9F4;">
+                            <div class="theme-dot"></div>
                             <span>蓝色主题</span>
                         </div>
-                        <div class="theme-btn" data-theme="green">
-                            <div class="theme-dot" style="background: linear-gradient(135deg, #4CAF50, #8BC34A);"></div>
+                        <div class="theme-btn" data-theme="green" style="--theme-primary: #4CAF50; --theme-secondary: #8BC34A;">
+                            <div class="theme-dot"></div>
                             <span>绿色主题</span>
                         </div>
-                        <div class="theme-btn" data-theme="purple">
-                            <div class="theme-dot" style="background: linear-gradient(135deg, #9C27B0, #673AB7);"></div>
+                        <div class="theme-btn" data-theme="purple" style="--theme-primary: #9C27B0; --theme-secondary: #673AB7;">
+                            <div class="theme-dot"></div>
                             <span>紫色主题</span>
                         </div>
-                        <div class="theme-btn" data-theme="orange">
-                            <div class="theme-dot" style="background: linear-gradient(135deg, #FF9800, #FF5722);"></div>
+                        <div class="theme-btn" data-theme="orange" style="--theme-primary: #FF9800; --theme-secondary: #FF5722;">
+                            <div class="theme-dot"></div>
                             <span>橙色主题</span>
                         </div>
-                        <div class="theme-btn" data-theme="pink">
-                            <div class="theme-dot" style="background: linear-gradient(135deg, #E91E63, #F06292);"></div>
+                        <div class="theme-btn" data-theme="pink" style="--theme-primary: #E91E63; --theme-secondary: #F06292;">
+                            <div class="theme-dot"></div>
                             <span>粉色主题</span>
                         </div>
                     </div>
@@ -752,165 +814,157 @@
                 })
             };
             
-            // 主题设置
+            // 主题设置 - 扩展为包含Three.js场景变量
             const themes = {
                 default: {
                     primary: "#6750A4",
+                    secondary: "#7D5260",
+                    primaryLight: "#D0BCFF",
+                    secondaryLight: "#EFB8C8",
                     onPrimary: "#FFFFFF",
-                    primaryContainer: "#EADDFF",
-                    onPrimaryContainer: "#21005D",
-                    secondary: "#625B71",
                     onSecondary: "#FFFFFF",
-                    secondaryContainer: "#E8DEF8",
-                    onSecondaryContainer: "#1D192B",
-                    tertiary: "#7D5260",
-                    onTertiary: "#FFFFFF",
-                    tertiaryContainer: "#FFD8E4",
-                    onTertiaryContainer: "#31111D",
                     surface: "#141218",
-                    onSurface: "#E6E0E9",
-                    surfaceVariant: "#49454F",
-                    onSurfaceVariant: "#CAC4D0",
-                    outline: "#938F99",
-                    surfaceDim: "#141218",
-                    surfaceBright: "#3B383E",
-                    surfaceContainerLowest: "#0F0D13",
-                    surfaceContainerLow: "#1D1B20",
                     surfaceContainer: "#211F26",
                     surfaceContainerHigh: "#2B2930",
-                    surfaceContainerHighest: "#36343B"
+                    onSurface: "#E6E0E9",
+                    onSurfaceVariant: "#CAC4D0",
+                    outline: "#938F99",
+                    sceneBackground: "#050a20",
+                    sceneAxesColor: "#ffffff",
+                    sceneLightAmbient: "#ffffff",
+                    sceneLightDirectional: "#ffffff",
+                    sceneLightDirectional2: "#64b5f6",
+                    vertexBaseColor: "#64b5f6",
+                    edgeBaseColor: "#64b5f6",
+                    gradientStart: "#141218",
+                    gradientEnd: "#0F0D13"
                 },
                 blue: {
                     primary: "#2196F3",
+                    secondary: "#03A9F4",
+                    primaryLight: "#BBDEFB",
+                    secondaryLight: "#B3E5FC",
                     onPrimary: "#FFFFFF",
-                    primaryContainer: "#BBDEFB",
-                    onPrimaryContainer: "#0D47A1",
-                    secondary: "#64B5F6",
                     onSecondary: "#000000",
-                    secondaryContainer: "#BBDEFB",
-                    onSecondaryContainer: "#0D47A1",
-                    tertiary: "#03A9F4",
-                    onTertiary: "#000000",
-                    tertiaryContainer: "#B3E5FC",
-                    onTertiaryContainer: "#01579B",
                     surface: "#0D1B2A",
-                    onSurface: "#E1F5FE",
-                    surfaceVariant: "#37474F",
-                    onSurfaceVariant: "#CFD8DC",
-                    outline: "#90A4AE",
-                    surfaceDim: "#0D1B2A",
-                    surfaceBright: "#1E2B3A",
-                    surfaceContainerLowest: "#070E18",
-                    surfaceContainerLow: "#121F2D",
                     surfaceContainer: "#162332",
                     surfaceContainerHigh: "#1F2D3C",
-                    surfaceContainerHighest: "#2A3847"
+                    onSurface: "#E1F5FE",
+                    onSurfaceVariant: "#CFD8DC",
+                    outline: "#90A4AE",
+                    sceneBackground: "#0a1525",
+                    sceneAxesColor: "#e0f7fa",
+                    sceneLightAmbient: "#bbdefb",
+                    sceneLightDirectional: "#bbdefb",
+                    sceneLightDirectional2: "#29b6f6",
+                    vertexBaseColor: "#29b6f6",
+                    edgeBaseColor: "#29b6f6",
+                    gradientStart: "#0D1B2A",
+                    gradientEnd: "#070E18"
                 },
                 green: {
                     primary: "#4CAF50",
-                    onPrimary: "#FFFFFF",
-                    primaryContainer: "#C8E6C9",
-                    onPrimaryContainer: "#1B5E20",
                     secondary: "#8BC34A",
+                    primaryLight: "#C8E6C9",
+                    secondaryLight: "#DCEDC8",
+                    onPrimary: "#FFFFFF",
                     onSecondary: "#000000",
-                    secondaryContainer: "#DCEDC8",
-                    onSecondaryContainer: "#33691E",
-                    tertiary: "#009688",
-                    onTertiary: "#FFFFFF",
-                    tertiaryContainer: "#B2DFDB",
-                    onTertiaryContainer: "#00695C",
                     surface: "#0F1F15",
-                    onSurface: "#E8F5E9",
-                    surfaceVariant: "#37474F",
-                    onSurfaceVariant: "#CFD8DC",
-                    outline: "#90A4AE",
-                    surfaceDim: "#0F1F15",
-                    surfaceBright: "#1F2F25",
-                    surfaceContainerLowest: "#09150E",
-                    surfaceContainerLow: "#14231B",
                     surfaceContainer: "#18271F",
                     surfaceContainerHigh: "#213229",
-                    surfaceContainerHighest: "#2C3D34"
+                    onSurface: "#E8F5E9",
+                    onSurfaceVariant: "#CFD8DC",
+                    outline: "#90A4AE",
+                    sceneBackground: "#0a1a12",
+                    sceneAxesColor: "#e8f5e9",
+                    sceneLightAmbient: "#c8e6c9",
+                    sceneLightDirectional: "#c8e6c9",
+                    sceneLightDirectional2: "#66bb6a",
+                    vertexBaseColor: "#66bb6a",
+                    edgeBaseColor: "#66bb6a",
+                    gradientStart: "#0F1F15",
+                    gradientEnd: "#09150E"
                 },
                 purple: {
                     primary: "#9C27B0",
+                    secondary: "#673AB7",
+                    primaryLight: "#E1BEE7",
+                    secondaryLight: "#D1C4E9",
                     onPrimary: "#FFFFFF",
-                    primaryContainer: "#E1BEE7",
-                    onPrimaryContainer: "#4A148C",
-                    secondary: "#7B1FA2",
                     onSecondary: "#FFFFFF",
-                    secondaryContainer: "#D1C4E9",
-                    onSecondaryContainer: "#311B92",
-                    tertiary: "#673AB7",
-                    onTertiary: "#FFFFFF",
-                    tertiaryContainer: "#D1C4E9",
-                    onTertiaryContainer: "#311B92",
                     surface: "#1A0C1F",
-                    onSurface: "#EDE7F6",
-                    surfaceVariant: "#4A4458",
-                    onSurfaceVariant: "#C7C0D8",
-                    outline: "#938F99",
-                    surfaceDim: "#1A0C1F",
-                    surfaceBright: "#2A1C2F",
-                    surfaceContainerLowest: "#140919",
-                    surfaceContainerLow: "#201425",
                     surfaceContainer: "#241829",
                     surfaceContainerHigh: "#2E2233",
-                    surfaceContainerHighest: "#392D3E"
+                    onSurface: "#EDE7F6",
+                    onSurfaceVariant: "#C7C0D8",
+                    outline: "#938F99",
+                    sceneBackground: "#150a1a",
+                    sceneAxesColor: "#f3e5f5",
+                    sceneLightAmbient: "#e1bee7",
+                    sceneLightDirectional: "#e1bee7",
+                    sceneLightDirectional2: "#ab47bc",
+                    vertexBaseColor: "#ab47bc",
+                    edgeBaseColor: "#ab47bc",
+                    gradientStart: "#1A0C1F",
+                    gradientEnd: "#140919"
                 },
                 orange: {
                     primary: "#FF9800",
-                    onPrimary: "#000000",
-                    primaryContainer: "#FFE0B2",
-                    onPrimaryContainer: "#E65100",
                     secondary: "#FF5722",
+                    primaryLight: "#FFE0B2",
+                    secondaryLight: "#FFCCBC",
+                    onPrimary: "#000000",
                     onSecondary: "#FFFFFF",
-                    secondaryContainer: "#FFCCBC",
-                    onSecondaryContainer: "#BF360C",
-                    tertiary: "#FF6D00",
-                    onTertiary: "#000000",
-                    tertiaryContainer: "#FFD180",
-                    onTertiaryContainer: "#E65100",
                     surface: "#1F1200",
-                    onSurface: "#FFF8E1",
-                    surfaceVariant: "#4E342E",
-                    onSurfaceVariant: "#D7CCC8",
-                    outline: "#A1887F",
-                    surfaceDim: "#1F1200",
-                    surfaceBright: "#2F2200",
-                    surfaceContainerLowest: "#190D00",
-                    surfaceContainerLow: "#251900",
                     surfaceContainer: "#291D00",
                     surfaceContainerHigh: "#342800",
-                    surfaceContainerHighest: "#3F3200"
+                    onSurface: "#FFF8E1",
+                    onSurfaceVariant: "#D7CCC8",
+                    outline: "#A1887F",
+                    sceneBackground: "#1a0d00",
+                    sceneAxesColor: "#fff3e0",
+                    sceneLightAmbient: "#ffe0b2",
+                    sceneLightDirectional: "#ffe0b2",
+                    sceneLightDirectional2: "#ffb74d",
+                    vertexBaseColor: "#ffb74d",
+                    edgeBaseColor: "#ffb74d",
+                    gradientStart: "#1F1200",
+                    gradientEnd: "#190D00"
                 },
                 pink: {
                     primary: "#E91E63",
-                    onPrimary: "#FFFFFF",
-                    primaryContainer: "#F8BBD0",
-                    onPrimaryContainer: "#880E4F",
                     secondary: "#F06292",
+                    primaryLight: "#F8BBD0",
+                    secondaryLight: "#F8BBD0",
+                    onPrimary: "#FFFFFF",
                     onSecondary: "#000000",
-                    secondaryContainer: "#F8BBD0",
-                    onSecondaryContainer: "#880E4F",
-                    tertiary: "#EC407A",
-                    onTertiary: "#FFFFFF",
-                    tertiaryContainer: "#F8BBD0",
-                    onTertiaryContainer: "#880E4F",
                     surface: "#1F0A14",
-                    onSurface: "#FCE4EC",
-                    surfaceVariant: "#4A2A35",
-                    onSurfaceVariant: "#E8B4C2",
-                    outline: "#BC8A9A",
-                    surfaceDim: "#1F0A14",
-                    surfaceBright: "#2F1A24",
-                    surfaceContainerLowest: "#190510",
-                    surfaceContainerLow: "#25101A",
                     surfaceContainer: "#29141E",
                     surfaceContainerHigh: "#341F29",
-                    surfaceContainerHighest: "#3F2934"
+                    onSurface: "#FCE4EC",
+                    onSurfaceVariant: "#E8B4C2",
+                    outline: "#BC8A9A",
+                    sceneBackground: "#1a0912",
+                    sceneAxesColor: "#fce4ec",
+                    sceneLightAmbient: "#f8bbd0",
+                    sceneLightDirectional: "#f8bbd0",
+                    sceneLightDirectional2: "#f48fb1",
+                    vertexBaseColor: "#f48fb1",
+                    edgeBaseColor: "#f48fb1",
+                    gradientStart: "#1F0A14",
+                    gradientEnd: "#190510"
                 }
             };
+            
+            // 将十六进制颜色转换为RGB数组
+            function hexToRgb(hex) {
+                const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+                return result ? [
+                    parseInt(result[1], 16),
+                    parseInt(result[2], 16),
+                    parseInt(result[3], 16)
+                ] : [0, 0, 0];
+            }
             
             // 应用主题
             function applyTheme(themeName) {
@@ -920,7 +974,21 @@
                 const root = document.documentElement;
                 for (const [key, value] of Object.entries(theme)) {
                     root.style.setProperty(`--md-${key}`, value);
+                    
+                    // 为需要RGB值的变量添加-rgb版本
+                    if (key === 'surface' || key === 'surfaceContainer' || 
+                        key === 'surfaceContainerHigh' || key === 'outline' ||
+                        key === 'primaryLight' || key === 'secondaryLight') {
+                        const rgb = hexToRgb(value).join(', ');
+                        root.style.setProperty(`--md-${key}-rgb`, rgb);
+                    }
                 }
+                
+                // 设置背景渐变
+                document.body.style.background = `radial-gradient(circle at top right, ${theme.gradientStart}, ${theme.gradientEnd})`;
+                
+                // 更新Three.js场景颜色
+                updateSceneColors(theme);
                 
                 // 更新按钮状态
                 document.querySelectorAll('.theme-btn').forEach(btn => {
@@ -928,6 +996,56 @@
                     if (btn.dataset.theme === themeName) {
                         btn.classList.add('active');
                     }
+                });
+                
+                updateStatus(`已切换到 ${themeName} 主题`);
+            }
+            
+            // 更新Three.js场景颜色
+            function updateSceneColors(theme) {
+                if (!scene) return;
+                
+                // 更新场景背景
+                scene.background = new THREE.Color(theme.sceneBackground);
+                
+                // 更新坐标轴辅助
+                scene.traverse(obj => {
+                    if (obj.isAxesHelper) {
+                        obj.material = new THREE.LineBasicMaterial({ 
+                            vertexColors: true 
+                        });
+                    }
+                });
+                
+                // 更新光源颜色
+                scene.traverse(obj => {
+                    if (obj.isLight) {
+                        if (obj.isAmbientLight) {
+                            obj.color = new THREE.Color(theme.sceneLightAmbient);
+                        } else if (obj.isDirectionalLight) {
+                            if (obj.userData.isSecondary) {
+                                obj.color = new THREE.Color(theme.sceneLightDirectional2);
+                            } else {
+                                obj.color = new THREE.Color(theme.sceneLightDirectional);
+                            }
+                        }
+                    }
+                });
+                
+                // 更新顶点材质颜色
+                verticesMesh.forEach(vertexMesh => {
+                    vertexMesh.material.color = new THREE.Color(theme.vertexBaseColor);
+                    vertexMesh.material.emissive = new THREE.Color(theme.vertexBaseColor);
+                    vertexMesh.material.needsUpdate = true;
+                });
+                
+                // 更新边的材质颜色
+                materialPool.edge.color = new THREE.Color(theme.edgeBaseColor);
+                materialPool.edge.needsUpdate = true;
+                
+                // 更新所有边的颜色
+                edgesLines.forEach(line => {
+                    line.material = materialPool.edge;
                 });
             }
             
@@ -994,6 +1112,7 @@
                 
                 const directionalLight2 = new THREE.DirectionalLight(0x64b5f6, 0.4);
                 directionalLight2.position.set(-1, -1, -1);
+                directionalLight2.userData.isSecondary = true;
                 scene.add(directionalLight2);
                 
                 // 创建坐标轴辅助
@@ -1423,7 +1542,6 @@
                     btn.addEventListener('click', function() {
                         const themeName = this.dataset.theme;
                         applyTheme(themeName);
-                        updateStatus(`已切换到 ${this.textContent.trim()} 主题`);
                     });
                 });
                 
