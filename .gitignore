@@ -10,3 +10,8 @@ TUXmod
 RunRemote/in.mp3
 SRF
 srf.data
+LifeGame_arm64
+LifeGame_arm64_optimized
+LifeGame_arm64_pgo
+default.profdata
+default.profraw

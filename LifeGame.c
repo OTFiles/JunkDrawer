@@ -1,95 +1,70 @@
 /*
-编译选项说明（支持 GCC 和 Clang/LLVM）：
+编译选项说明（支持 Android 环境）：
 
 1. 通用编译（无优化）：
    gcc -o LifeGame LifeGame.c -lncurses -pthread -O2
 
-2. ARM32优化编译：
-   # 基础编译
-   gcc -marm -march=armv7 -mtune=cortex-a53 -mfpu=neon -mfloat-abi=hard \
+2. ARM32优化编译（Android 环境）：
+   # 基础编译（Android 环境）
+   gcc -marm -march=armv7-a -mtune=cortex-a53 -mfpu=neon -mfloat-abi=softfp \
        -O3 -DARM_OPTIMIZED -o LifeGame_arm32 LifeGame.c -lncurses -pthread
    
-   # 更激进优化（LTO+PGO）
-   # GCC 版本:
-   gcc -marm -march=armv7 -mtune=cortex-a53 -mfpu=neon -mfloat-abi=hard \
-       -flto -fprofile-generate -O3 -DARM_OPTIMIZED -o LifeGame_arm32_pgo LifeGame.c -lncurses -pthread
-   ./LifeGame_arm32_pgo
-   gcc -marm -march=armv7 -mtune=cortex-a53 -mfpu=neon -mfloat-abi=hard \
-       -flto -fprofile-use -fprofile-correction -O3 -DARM_OPTIMIZED -o LifeGame_arm32_optimized LifeGame.c -lncurses -pthread
-   
-   # Clang/LLVM 版本:
-   clang -marm -march=armv7 -mtune=cortex-a53 -mfpu=neon -mfloat-abi=hard \
-       -flto -fprofile-instr-generate -O3 -DARM_OPTIMIZED -o LifeGame_arm32_pgo LifeGame.c -lncurses -pthread
+   # Clang PGO优化（Android 环境）
+   clang -marm -march=armv7-a -mtune=cortex-a53 -mfpu=neon -mfloat-abi=softfp \
+         -fprofile-instr-generate -O3 -DARM_OPTIMIZED -o LifeGame_arm32_pgo LifeGame.c -lncurses -pthread
    ./LifeGame_arm32_pgo
    llvm-profdata merge -output=default.profdata *.profraw
-   clang -marm -march=armv7 -mtune=cortex-a53 -mfpu=neon -mfloat-abi=hard \
-       -flto -fprofile-instr-use=default.profdata -O3 -DARM_OPTIMIZED -o LifeGame_arm32_optimized LifeGame.c -lncurses -pthread
+   clang -marm -march=armv7-a -mtune=cortex-a53 -mfpu=neon -mfloat-abi=softfp \
+         -fprofile-instr-use=default.profdata -O3 -DARM_OPTIMIZED -o LifeGame_arm32_optimized LifeGame.c -lncurses -pthread
+   
+   # GCC PGO优化（Android 环境）
+   gcc -marm -march=armv7-a -mtune=cortex-a53 -mfpu=neon -mfloat-abi=softfp \
+       -fprofile-generate -O3 -DARM_OPTIMIZED -o LifeGame_arm32_pgo LifeGame.c -lncurses -pthread
+   ./LifeGame_arm32_pgo
+   gcc -marm -march=armv7-a -mtune=cortex-a53 -mfpu=neon -mfloat-abi=softfp \
+       -fprofile-use -O3 -DARM_OPTIMIZED -o LifeGame_arm32_optimized LifeGame.c -lncurses -pthread
 
-3. x86_64优化编译：
+3. ARM64优化编译（Android 环境）：
+   # 基础编译
+   gcc -O3 -DARM64_OPTIMIZED -o LifeGame_arm64 LifeGame.c -lncurses -pthread
+   
+   # Clang PGO优化
+   clang -O3 -DARM64_OPTIMIZED -march=armv8-a -mtune=cortex-a72 \
+         -fprofile-instr-generate -o LifeGame_arm64_pgo LifeGame.c -lncurses -pthread
+   ./LifeGame_arm64_pgo
+   llvm-profdata merge -output=default.profdata *.profraw
+   clang -O3 -DARM64_OPTIMIZED -march=armv8-a -mtune=cortex-a72 \
+         -fprofile-instr-use=default.profdata -o LifeGame_arm64_optimized LifeGame.c -lncurses -pthread
+   
+   # GCC PGO优化
+   gcc -O3 -DARM64_OPTIMIZED -march=armv8-a -mtune=cortex-a72 \
+       -fprofile-generate -o LifeGame_arm64_pgo LifeGame.c -lncurses -pthread
+   ./LifeGame_arm64_pgo
+   gcc -O3 -DARM64_OPTIMIZED -march=armv8-a -mtune=cortex-a72 \
+       -fprofile-use -o LifeGame_arm64_optimized LifeGame.c -lncurses -pthread
+   
+   # 针对树莓派4（Cortex-A72）
+   gcc -O3 -DARM64_OPTIMIZED -mcpu=cortex-a72 -o LifeGame_rpi4 LifeGame.c -lncurses -pthread
+
+4. x86_64优化编译（通用 Linux 环境）：
    # 基础编译
    gcc -m64 -march=x86-64 -mtune=znver3 -O3 -DX64_OPTIMIZED \
        -o LifeGame_x64 LifeGame.c -lncurses -pthread
    
-   # 高级优化（POPCNT指令集）
-   gcc -m64 -march=haswell -O3 -DX64_OPTIMIZED -mpopcnt \
-       -o LifeGame_x64_popcnt LifeGame.c -lncurses -pthread
-   
-   # LTO+PGO优化
-   # GCC 版本:
+   # PGO优化（GCC）
    gcc -m64 -march=haswell -flto -fprofile-generate -O3 -DX64_OPTIMIZED -mpopcnt \
        -o LifeGame_x64_pgo LifeGame.c -lncurses -pthread
    ./LifeGame_x64_pgo
    gcc -m64 -march=haswell -flto -fprofile-use -fprofile-correction -O3 -DX64_OPTIMIZED -mpopcnt \
        -o LifeGame_x64_optimized LifeGame.c -lncurses -pthread
    
-   # Clang/LLVM 版本:
+   # PGO优化（Clang）
    clang -m64 -march=haswell -flto -fprofile-instr-generate -O3 -DX64_OPTIMIZED -mpopcnt \
-       -o LifeGame_x64_pgo LifeGame.c -lncurses -pthread
+         -o LifeGame_x64_pgo LifeGame.c -lncurses -pthread
    ./LifeGame_x64_pgo
    llvm-profdata merge -output=default.profdata *.profraw
    clang -m64 -march=haswell -flto -fprofile-instr-use=default.profdata -O3 -DX64_OPTIMIZED -mpopcnt \
-       -o LifeGame_x64_optimized LifeGame.c -lncurses -pthread
-
-4. ARM64优化编译：
-   # 基础编译（树莓派4、Jetson Nano等）
-   gcc -O3 -DARM64_OPTIMIZED -o LifeGame_arm64 LifeGame.c -lncurses -pthread
-   
-   # 高级优化（NEON指令集）
-   gcc -O3 -DARM64_OPTIMIZED -march=armv8-a -mtune=cortex-a72 \
-       -mcpu=native -mfloat-abi=hard -mfpu=neon -funsafe-math-optimizations \
-       -o LifeGame_arm64_neon LifeGame.c -lncurses -pthread
-   
-   # 链接时优化（LTO）
-   gcc -O3 -DARM64_OPTIMIZED -march=armv8-a -mtune=cortex-a72 \
-       -flto -fuse-linker-plugin -o LifeGame_arm64_lto LifeGame.c -lncurses -pthread
-   
-   # 性能导向优化（PGO）
-   # GCC 版本:
-   gcc -O3 -DARM64_OPTIMIZED -march=armv8-a -mtune=cortex-a72 \
-       -fprofile-generate -o LifeGame_arm64_pgo LifeGame.c -lncurses -pthread
-   ./LifeGame_arm64_pgo
-   gcc -O3 -DARM64_OPTIMIZED -march=armv8-a -mtune=cortex-a72 \
-       -fprofile-use -fprofile-correction -o LifeGame_arm64_optimized LifeGame.c -lncurses -pthread
-   
-   # Clang/LLVM 版本:
-   clang -O3 -DARM64_OPTIMIZED -march=armv8-a -mtune=cortex-a72 \
-       -fprofile-instr-generate -o LifeGame_arm64_pgo LifeGame.c -lncurses -pthread
-   ./LifeGame_arm64_pgo
-   llvm-profdata merge -output=default.profdata *.profraw
-   clang -O3 -DARM64_OPTIMIZED -march=armv8-a -mtune=cortex-a72 \
-       -fprofile-instr-use=default.profdata -o LifeGame_arm64_optimized LifeGame.c -lncurses -pthread
-   
-   # 针对特定CPU的优化
-   # 树莓派4（Cortex-A72）
-   gcc -O3 -DARM64_OPTIMIZED -mcpu=cortex-a72 -mfloat-abi=hard -mfpu=neon-fp-armv8 \
-       -o LifeGame_rpi4 LifeGame.c -lncurses -pthread
-   
-   # NVIDIA Jetson Nano（Denver/Carmel）
-   gcc -O3 -DARM64_OPTIMIZED -mcpu=cortex-a57 -mfloat-abi=hard -mfpu=neon-fp-armv8 \
-       -o LifeGame_jetson LifeGame.c -lncurses -pthread
-   
-   # Apple M1（Firestorm/Icestorm）
-   gcc -O3 -DARM64_OPTIMIZED -mcpu=apple-m1 -o LifeGame_m1 LifeGame.c -lncurses -pthread
+         -o LifeGame_x64_optimized LifeGame.c -lncurses -pthread
 */
 
 #define _XOPEN_SOURCE 700
@@ -107,6 +82,10 @@
 #include <stdbool.h>
 #include <arm_neon.h>
 
+// 速度等级定义
+#define MIN_SPEED_LEVEL 1
+#define MAX_SPEED_LEVEL 10
+#define DEFAULT_SPEED_LEVEL 5
 
 // 根据架构选择优化配置
 #if defined(ARM_OPTIMIZED)
@@ -223,6 +202,9 @@ typedef struct {
     Update *updates;
     int updates_count;
     int updates_capacity;
+    int prev_rows, prev_cols; // 保存上一次的终端尺寸
+    int speed_level;          // 速度等级 (1-10)
+    int skip_frames;          // 跳过的帧数（用于高速模式）
 } GameState;
 
 // 函数声明
@@ -248,12 +230,25 @@ void add_to_positions(GameState *state, int x, int y);
 void add_to_updates(GameState *state, int x, int y, bool alive);
 void free_world(World *world);
 uint64_t get_time_ms();
+void adjust_speed(GameState *state, int change);
 
 // 获取当前时间（毫秒）
 uint64_t get_time_ms() {
     struct timeval tv;
     gettimeofday(&tv, NULL);
     return (uint64_t)(tv.tv_sec) * 1000 + (uint64_t)(tv.tv_usec) / 1000;
+}
+
+// 调整速度
+void adjust_speed(GameState *state, int change) {
+    state->speed_level += change;
+    
+    // 确保速度在有效范围内
+    if (state->speed_level < MIN_SPEED_LEVEL) state->speed_level = MIN_SPEED_LEVEL;
+    if (state->speed_level > MAX_SPEED_LEVEL) state->speed_level = MAX_SPEED_LEVEL;
+    
+    // 重置跳帧计数器
+    state->skip_frames = 0;
 }
 
 // 调整动态数组大小
@@ -330,8 +325,13 @@ void init_game(GameState *state, int argc, char** argv) {
     state->cursor_screen_y = state->rows / 2;
     state->prev_cursor_screen_x = -1;
     state->prev_cursor_screen_y = -1;
+    state->speed_level = DEFAULT_SPEED_LEVEL;
+    state->skip_frames = 0;
     SLIST_INIT(&state->world);
+    state->prev_rows = LINES;
+    state->prev_cols = COLS;
     
+    // 解析命令行参数
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-z") == 0) {
             state->precompute = true;
@@ -340,6 +340,16 @@ void init_game(GameState *state, int argc, char** argv) {
                 long rounds = strtol(argv[i+1], &end, 10);
                 if (*end == '\0' && rounds > 0 && rounds <= 1000) {
                     state->precompute_rounds = rounds;
+                    i++;
+                }
+            }
+        }
+        else if (strcmp(argv[i], "-s") == 0 || strcmp(argv[i], "--speed") == 0) {
+            if (i + 1 < argc) {
+                char *end;
+                long speed = strtol(argv[i+1], &end, 10);
+                if (*end == '\0' && speed >= MIN_SPEED_LEVEL && speed <= MAX_SPEED_LEVEL) {
+                    state->speed_level = speed;
                     i++;
                 }
             }
@@ -434,9 +444,6 @@ Chunk* get_chunk(GameState *state, int world_x, int world_y) {
     new_row->key = chunk_y;
     SLIST_INIT(&new_row->row);
     
-    // 修复此处：使用正确的链表头
-    SLIST_INSERT_HEAD(&state->world, new_row, entries);
-    
     ChunkEntry *new_entry = malloc(sizeof(ChunkEntry));
     if (!new_entry) {
         free(new_row);
@@ -450,6 +457,7 @@ Chunk* get_chunk(GameState *state, int world_x, int world_y) {
         return NULL;
     }
     SLIST_INSERT_HEAD(&new_row->row, new_entry, entries);
+    SLIST_INSERT_HEAD(&state->world, new_row, entries);
     return new_entry->chunk;
 }
 
@@ -727,6 +735,7 @@ CommandResult save_world(GameState *state, const char* filename) {
     fprintf(file, "#Life 1.06\n");
     fprintf(file, "# Generated by LifeGame\n");
     fprintf(file, "# Viewport: %d %d\n", state->viewport_x, state->viewport_y);
+    fprintf(file, "# Speed: %d\n", state->speed_level);
 
     RowEntry *row_entry;
     SLIST_FOREACH(row_entry, &state->world, entries) {
@@ -765,12 +774,18 @@ CommandResult load_world(GameState *state, const char* filename) {
 
     char line[256];
     bool viewport_loaded = false;
+    bool speed_loaded = false;
 
     while (fgets(line, sizeof(line), file)) {
         if (line[0] == '#' || line[0] == '\n' || line[0] == '\r') {
             if (strstr(line, "# Viewport:") != NULL) {
                 if (sscanf(line + 11, "%d %d", &state->viewport_x, &state->viewport_y) == 2) {
                     viewport_loaded = true;
+                }
+            }
+            else if (strstr(line, "# Speed:") != NULL) {
+                if (sscanf(line + 8, "%d", &state->speed_level) == 1) {
+                    speed_loaded = true;
                 }
             }
             continue;
@@ -786,6 +801,11 @@ CommandResult load_world(GameState *state, const char* filename) {
     }
 
     fclose(file);
+    
+    // 如果没有加载速度，使用默认速度
+    if (!speed_loaded) {
+        state->speed_level = DEFAULT_SPEED_LEVEL;
+    }
     
     if (!viewport_loaded && state->live_cell_count > 0) {
         long long sum_x = 0, sum_y = 0;
@@ -831,6 +851,25 @@ void design_mode(GameState *state) {
     state->prev_cursor_screen_y = state->cursor_screen_y;
     
     while (state->mode == DESIGN) {
+        // 更新终端尺寸
+        state->rows = LINES;
+        state->cols = COLS;
+        
+        // 检查终端大小变化
+        if (state->rows != state->prev_rows || state->cols != state->prev_cols) {
+            state->viewport_changed = true;
+            state->need_full_refresh = true;
+            // 调整光标位置
+            if (state->cursor_screen_x >= state->cols) {
+                state->cursor_screen_x = state->cols - 1;
+            }
+            if (state->cursor_screen_y >= state->rows) {
+                state->cursor_screen_y = state->rows - 1;
+            }
+            state->prev_rows = state->rows;
+            state->prev_cols = state->cols;
+        }
+        
         if (state->viewport_changed || state->need_full_refresh) {
             clear();
             draw_all_visible_chunks(state);
@@ -922,6 +961,16 @@ void command_mode(GameState *state) {
     echo();
     
     while (state->mode == COMMAND) {
+        // 更新终端尺寸
+        state->rows = LINES;
+        state->cols = COLS;
+        
+        // 检查终端大小变化
+        if (state->rows != state->prev_rows || state->cols != state->prev_cols) {
+            state->prev_rows = state->rows;
+            state->prev_cols = state->cols;
+        }
+        
         move(state->rows - 1, 0);
         clrtoeol();
         printw("CMD:%s", state->command_str);
@@ -1046,62 +1095,73 @@ void play_mode(GameState *state) {
     state->dirty_count = 0;
     
     int generation_count = 0;
-    int frames_skipped = 0;
-    const int max_skip_frames = 3;
-    const int target_fps = 30;
-    const int frame_delay = 1000 / target_fps;
+    uint64_t last_frame_time = get_time_ms();
     
     while (state->mode == PLAY) {
-        uint64_t start_time = get_time_ms();
+        // 更新终端尺寸
+        state->rows = LINES;
+        state->cols = COLS;
         
+        // 检查终端大小变化
+        if (state->rows != state->prev_rows || state->cols != state->prev_cols) {
+            state->viewport_changed = true;
+            state->need_full_refresh = true;
+            state->prev_rows = state->rows;
+            state->prev_cols = state->cols;
+        }
+        
+        // 计算当前帧时间
+        uint64_t current_time = get_time_ms();
+        uint64_t frame_time = current_time - last_frame_time;
+        
+        // 计算目标帧时间（基于速度等级）
+        int target_frame_time = 1000 / (state->speed_level * 2);
+        if (target_frame_time < 10) target_frame_time = 10; // 最小10ms
+        
+        // 如果还没到下一帧时间，等待
+        if (frame_time < target_frame_time) {
+            usleep((target_frame_time - frame_time) * 1000);
+            continue;
+        }
+        
+        last_frame_time = current_time;
+        
+        // 计算下一代
         if (state->live_cell_count > 0) {
             compute_generation(state);
             generation_count++;
         }
         
-        uint64_t compute_time = get_time_ms();
-        uint64_t compute_duration = compute_time - start_time;
-        
-        bool should_draw = true;
-        
-        if (frames_skipped < max_skip_frames && compute_duration > 30) {
-            should_draw = false;
-            frames_skipped++;
+        // 绘制
+        if (state->viewport_changed || state->need_full_refresh) {
+            clear();
+            draw_all_visible_chunks(state);
+            state->viewport_changed = false;
+            state->need_full_refresh = false;
+            state->dirty_count = 0;
         } else {
-            frames_skipped = 0;
-        }
-        
-        if (should_draw) {
-            if (state->viewport_changed || state->need_full_refresh) {
-                clear();
-                draw_all_visible_chunks(state);
-                state->viewport_changed = false;
-                state->need_full_refresh = false;
-                state->dirty_count = 0;
-            } else {
-                for (int i = 0; i < state->dirty_count; i++) {
-                    int chunk_x = state->dirty_chunks[i].first;
-                    int chunk_y = state->dirty_chunks[i].second;
-                    Chunk *chunk = get_chunk_if_exists(state, 
-                        chunk_x * CHUNK_SIZE, chunk_y * CHUNK_SIZE);
-                    if (chunk) {
-                        draw_chunk(state, chunk_x, chunk_y, chunk);
-                    }
+            for (int i = 0; i < state->dirty_count; i++) {
+                int chunk_x = state->dirty_chunks[i].first;
+                int chunk_y = state->dirty_chunks[i].second;
+                Chunk *chunk = get_chunk_if_exists(state, 
+                    chunk_x * CHUNK_SIZE, chunk_y * CHUNK_SIZE);
+                if (chunk) {
+                    draw_chunk(state, chunk_x, chunk_y, chunk);
                 }
-                state->dirty_count = 0;
             }
-            
-            uint64_t draw_time = get_time_ms();
-            uint64_t draw_duration = draw_time - compute_time;
-            
-            mvprintw(0, 0, "PLAY MODE - Gen: %d, Cells: %d | Compute: %llums | Draw: %llums", 
-                     generation_count, state->live_cell_count, 
-                     (unsigned long long)compute_duration, 
-                     (unsigned long long)draw_duration);
-            clrtoeol();
-            refresh();
+            state->dirty_count = 0;
         }
         
+        // 显示游戏状态信息
+        mvprintw(0, 0, "PLAY MODE - Gen: %d, Cells: %d | Speed: %d/%d [%c%c]", 
+                 generation_count, state->live_cell_count,
+                 state->speed_level, MAX_SPEED_LEVEL,
+                 state->speed_level > MIN_SPEED_LEVEL ? '-' : ' ',
+                 state->speed_level < MAX_SPEED_LEVEL ? '+' : ' ');
+        clrtoeol();
+        refresh();
+        
+        // 处理输入
         int ch = getch();
         if (ch == 'q' || ch == 'Q') {
             state->mode = DESIGN;
@@ -1117,11 +1177,10 @@ void play_mode(GameState *state) {
         } else if (ch == 'd' || ch == 'D') {
             state->viewport_x++;
             state->viewport_changed = true;
-        }
-        
-        uint64_t frame_time = get_time_ms() - start_time;
-        if (frame_time < frame_delay) {
-            usleep((frame_delay - frame_time) * 1000);
+        } else if (ch == '+' || ch == '=') {
+            adjust_speed(state, 1); // 加快速度
+        } else if (ch == '-' || ch == '_') {
+            adjust_speed(state, -1); // 减慢速度
         }
     }
     
@@ -1144,6 +1203,7 @@ int main(int argc, char** argv) {
     
     GameState state;
     init_game(&state, argc, argv);
+    state.running = true;
     
     while (state.running) {
         switch (state.mode) {
