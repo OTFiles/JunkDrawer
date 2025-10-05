@@ -5,7 +5,8 @@
 ===========================================
 功能：解析剪贴板中的代码变更，应用替换并自动Git管理
 作者：AI助手
-版本：1.0
+版本：2.0
+更新：支持多个CodeEdit块、子目录搜索、增强错误处理
 ===========================================
 """
 import subprocess
@@ -13,6 +14,7 @@ import sys
 import re
 import os
 from datetime import datetime
+import glob
 
 def get_clipboard():
     """获取剪贴板内容"""
@@ -55,64 +57,56 @@ def remove_indentation(text, indent_level=4):
     
     return '\n'.join(cleaned_lines)
 
-def advanced_parse(content):
-    """高级解析，支持多种格式和自动缩进处理"""
-    # 尝试正则表达式匹配
-    patterns = {
-        'filename': r'##\s*FileName:\s*(.+)',
-        'original': r'##\s*A\s*```(?:\w+)?\s*([\s\S]*?)```',
-        'modified': r'##\s*B\s*```(?:\w+)?\s*([\s\S]*?)```'
-    }
+def find_file_in_project(filename):
+    """在项目中查找文件，包括子目录"""
+    # 首先检查当前目录
+    if os.path.exists(filename):
+        return filename
     
-    data = {}
+    # 在当前目录的子目录中查找
+    for root, dirs, files in os.walk('.'):
+        if filename in files:
+            return os.path.join(root, filename)
     
-    # 提取文件名
-    filename_match = re.search(patterns['filename'], content)
-    data['filename'] = filename_match.group(1).strip() if filename_match else 'unknown.py'
+    # 使用通配符查找
+    matches = glob.glob(f"**/{filename}", recursive=True)
+    if matches:
+        return matches[0]
     
-    # 提取原代码
-    original_match = re.search(patterns['original'], content)
-    original_code = original_match.group(1).strip() if original_match else ''
+    return None
+
+def parse_multiple_code_edits(content):
+    """解析多个CodeEdit块"""
+    # 分割不同的CodeEdit块
+    blocks = re.split(r'# UseTool:\s*CodeEdit\s*', content)
+    code_edits = []
     
-    # 提取修改后的代码
-    modified_match = re.search(patterns['modified'], content)
-    modified_code = modified_match.group(1).strip() if modified_match else ''
-    
-    # 如果A部分为空，尝试其他匹配方式
-    if not original_code:
-        print("未找到标准格式的A部分，尝试其他匹配方式...")
+    for block in blocks:
+        if not block.strip():
+            continue
+            
+        # 提取文件名
+        filename_match = re.search(r'##\s*FileName:\s*(.+)', block)
+        if not filename_match:
+            continue
+            
+        filename = filename_match.group(1).strip()
         
-        # 尝试匹配没有代码块标记的内容
-        alt_patterns = {
-            'original_alt': r'##\s*A\s*\n([\s\S]*?)(?=##\s*B|\Z)',
-            'modified_alt': r'##\s*B\s*\n([\s\S]*?)(?=##\s*|\Z)'
-        }
+        # 提取原代码和修改后代码
+        original_match = re.search(r'##\s*A\s*```(?:\w+)?\s*([\s\S]*?)```', block)
+        modified_match = re.search(r'##\s*B\s*```(?:\w+)?\s*([\s\S]*?)```', block)
         
-        original_alt_match = re.search(alt_patterns['original_alt'], content)
-        modified_alt_match = re.search(alt_patterns['modified_alt'], content)
+        original_code = original_match.group(1).strip() if original_match else ''
+        modified_code = modified_match.group(1).strip() if modified_match else ''
         
-        if original_alt_match and modified_alt_match:
-            original_code = original_alt_match.group(1).strip()
-            modified_code = modified_alt_match.group(1).strip()
-            print("找到替代格式的代码块")
+        if original_code or modified_code:
+            code_edits.append({
+                'filename': filename,
+                'original': original_code,
+                'modified': modified_code
+            })
     
-    # 自动缩进处理
-    needs_indentation = False
-    
-    # 检查是否需要添加缩进
-    if original_code and not any(line.startswith('    ') for line in original_code.split('\n') if line.strip()):
-        print("检测到代码缺少缩进，自动添加4空格缩进...")
-        needs_indentation = True
-    
-    if needs_indentation:
-        original_code = add_indentation(original_code)
-        modified_code = add_indentation(modified_code)
-    
-    data['original'] = original_code
-    data['modified'] = modified_code
-    data['needs_indentation'] = needs_indentation
-    
-    return data
+    return code_edits
 
 def smart_align_code(original, modified):
     """
@@ -149,16 +143,16 @@ def smart_align_code(original, modified):
     
     return '\n'.join(orig_lines), '\n'.join(mod_lines)
 
-def confirm_replacement(original, modified, filename):
+def confirm_replacement(original, modified, filename, filepath):
     """显示代码差异并请求用户确认替换"""
-    print(f"\n📄 文件: {filename}")
+    print(f"\n📄 文件: {filename} ({filepath})")
     print("=" * 60)
     print("原代码 (A):")
     print("-" * 30)
-    print(original)
+    print(original if original else "(空)")
     print("\n修改后代码 (B):")
     print("-" * 30)
-    print(modified)
+    print(modified if modified else "(空)")
     print("=" * 60)
     
     while True:
@@ -210,16 +204,16 @@ def check_and_create_git_branch():
         print(f"❌ Git操作出错: {e}")
         return False
 
-def apply_code_replacement(filename, original, modified):
+def apply_code_replacement(filepath, original, modified):
     """应用代码替换"""
     try:
         # 检查文件是否存在
-        if not os.path.exists(filename):
-            print(f"❌ 文件不存在: {filename}")
+        if not os.path.exists(filepath):
+            print(f"❌ 文件不存在: {filepath}")
             return False
             
         # 读取文件内容
-        with open(filename, 'r', encoding='utf-8') as f:
+        with open(filepath, 'r', encoding='utf-8') as f:
             content = f.read()
         
         # 查找并替换代码
@@ -227,15 +221,21 @@ def apply_code_replacement(filename, original, modified):
             new_content = content.replace(original, modified)
             
             # 写入文件
-            with open(filename, 'w', encoding='utf-8') as f:
+            with open(filepath, 'w', encoding='utf-8') as f:
                 f.write(new_content)
             
-            print(f"✅ 代码替换完成: {filename}")
+            print(f"✅ 代码替换完成: {filepath}")
             return True
         else:
             print(f"❌ 未找到匹配的原代码")
             print("原代码内容:")
+            print("-" * 40)
             print(original)
+            print("-" * 40)
+            print("文件内容:")
+            print("-" * 40)
+            print(content[:500] + "..." if len(content) > 500 else content)
+            print("-" * 40)
             return False
             
     except Exception as e:
@@ -270,13 +270,17 @@ def git_commit():
         print(f"❌ Git提交出错: {e}")
         return False
 
-def format_output(data):
+def format_output(code_edits):
     """格式化输出为统一格式"""
-    # 在输出前进行智能对齐
-    original_aligned, modified_aligned = smart_align_code(data['original'], data['modified'])
-    
-    output = f"""# UseTool: CodeEdit
-## FileName: {data['filename']}
+    output = ""
+    for i, edit in enumerate(code_edits):
+        # 在输出前进行智能对齐
+        original_aligned, modified_aligned = smart_align_code(
+            edit['original'], edit['modified']
+        )
+        
+        block_output = f"""# UseTool: CodeEdit
+## FileName: {edit['filename']}
 ## A
 ```
 {original_aligned}
@@ -285,10 +289,54 @@ def format_output(data):
 ```
 {modified_aligned}
 ```"""
+        if i > 0:
+            output += "\n\n"
+        output += block_output
+    
     return output
 
+def process_code_edits(code_edits):
+    """处理多个代码编辑块"""
+    successful_edits = []
+    
+    for i, edit in enumerate(code_edits):
+        print(f"\n🔄 处理第 {i+1}/{len(code_edits)} 个代码编辑块...")
+        
+        # 查找文件
+        filepath = find_file_in_project(edit['filename'])
+        if not filepath:
+            print(f"❌ 找不到文件: {edit['filename']}")
+            print("在以下位置查找:")
+            print("  - 当前目录")
+            print("  - 所有子目录")
+            continue
+        
+        # 自动缩进处理
+        needs_indentation = False
+        if edit['original'] and not any(line.startswith('    ') for line in edit['original'].split('\n') if line.strip()):
+            print("检测到代码缺少缩进，自动添加4空格缩进...")
+            needs_indentation = True
+        
+        original_code = edit['original']
+        modified_code = edit['modified']
+        
+        if needs_indentation:
+            original_code = add_indentation(original_code)
+            modified_code = add_indentation(modified_code)
+        
+        # 请求用户确认替换
+        if not confirm_replacement(original_code, modified_code, edit['filename'], filepath):
+            print("❌ 用户取消替换")
+            continue
+        
+        # 应用代码替换
+        if apply_code_replacement(filepath, original_code, modified_code):
+            successful_edits.append(edit)
+    
+    return successful_edits
+
 def main():
-    print("📋 剪贴板内容处理器")
+    print("📋 CodeSync Assistant - 代码同步助手")
     print("正在获取剪贴板内容...")
     
     content = get_clipboard()
@@ -297,41 +345,30 @@ def main():
     
     print("正在解析内容...")
     
-    data = advanced_parse(content)
+    # 解析多个CodeEdit块
+    code_edits = parse_multiple_code_edits(content)
     
-    if not data['original'] and not data['modified']:
-        print("❌ 错误：未找到有效的代码块")
+    if not code_edits:
+        print("❌ 错误：未找到有效的CodeEdit块")
         print("请确保内容包含：")
-        print("1. ## FileName: 文件名")
-        print("2. ## A 部分的原代码块")
-        print("3. ## B 部分的修改后代码块")
+        print("1. # UseTool: CodeEdit")
+        print("2. ## FileName: 文件名")
+        print("3. ## A 部分的原代码块")
+        print("4. ## B 部分的修改后代码块")
         sys.exit(1)
     
-    # 如果只有B部分没有A部分，提示用户
-    if not data['original'] and data['modified']:
-        print("⚠️  警告：只找到B部分（修改后代码），缺少A部分（原代码）")
-        print("将使用空的A部分")
-        data['original'] = "# 原代码缺失\n# 请手动补充原代码内容"
-    
-    # 格式化输出
-    formatted = format_output(data)
-    
-    print("\n" + "✅ 格式化完成：" + "="*40)
-    print(formatted)
-    
-    # 请求用户确认替换
-    if not confirm_replacement(data['original'], data['modified'], data['filename']):
-        print("❌ 用户取消替换")
-        sys.exit(0)
+    print(f"✅ 找到 {len(code_edits)} 个代码编辑块")
     
     # 检查并创建Git分支
     if not check_and_create_git_branch():
         print("❌ Git分支处理失败")
         sys.exit(1)
     
-    # 应用代码替换
-    if not apply_code_replacement(data['filename'], data['original'], data['modified']):
-        print("❌ 代码替换失败")
+    # 处理所有代码编辑块
+    successful_edits = process_code_edits(code_edits)
+    
+    if not successful_edits:
+        print("❌ 没有成功应用的代码编辑")
         sys.exit(1)
     
     # 执行Git提交
@@ -343,6 +380,7 @@ def main():
     copy_choice = input("\n是否将格式化结果复制到剪贴板? (y/N): ").strip().lower()
     if copy_choice in ('y', 'yes'):
         try:
+            formatted = format_output(successful_edits)
             subprocess.run(['termux-clipboard-set'], 
                           input=formatted, text=True, check=True)
             print("📋 格式化结果已复制到剪贴板")
