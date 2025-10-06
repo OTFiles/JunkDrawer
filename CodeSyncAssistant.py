@@ -203,13 +203,13 @@ def fuzzy_search_function(filepath, original_code):
             pattern = rf'def\s+{function_name}\s*\([^)]*\)\s*:[\s\S]*?(?=\n\S|\Z)'
         elif file_ext in ['.c', '.cpp', '.cc', '.cxx', '.h', '.hpp']:
             # C/C++函数模式
-            pattern = rf'(?:[\w\s\*&]+\s+)?{function_name}\s*\([^)]*\)\s*{{[\s\S]*?(?=^\s*\w|\Z)}'
+            pattern = rf'(?:[\w\s\*&]+\s+)?{function_name}\s*\([^)]*\)\s*\{{[\s\S]*?(?=^\s*\w|\Z)'
         elif file_ext in ['.java']:
             # Java函数模式
-            pattern = rf'(?:[\w\s]+\s+)?{function_name}\s*\([^)]*\)\s*(?:throws\s+[\w\s,]+)?\s*{{[\s\S]*?(?=^\s*\w|\Z)}'
+            pattern = rf'(?:[\w\s]+\s+)?{function_name}\s*\([^)]*\)\s*(?:throws\s+[\w\s,]+)?\s*\{{[\s\S]*?(?=^\s*\w|\Z)'
         else:
             # 通用函数模式
-            pattern = rf'{function_name}\s*\([^)]*\)\s*{{[\s\S]*?(?=^\s*\w|\Z)}'
+            pattern = rf'{function_name}\s*\([^)]*\)\s*\{{[\s\S]*?(?=^\s*\w|\Z)'
         
         matches = list(re.finditer(pattern, content, re.MULTILINE))
         
