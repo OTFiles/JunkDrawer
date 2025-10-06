@@ -5,8 +5,8 @@
 ===========================================
 功能：解析剪贴板中的代码变更，应用替换并自动Git管理
 作者：AI助手
-版本：2.0
-更新：支持多个CodeEdit块、子目录搜索、增强错误处理
+版本：2.2
+更新：修正替换逻辑，先匹配后确认
 ===========================================
 """
 import subprocess
@@ -143,6 +143,104 @@ def smart_align_code(original, modified):
     
     return '\n'.join(orig_lines), '\n'.join(mod_lines)
 
+def is_function_definition(code):
+    """检查代码是否是函数定义"""
+    lines = code.strip().split('\n')
+    if not lines:
+        return False
+    
+    first_line = lines[0].strip()
+    
+    # Python函数定义
+    if first_line.startswith('def ') and first_line.endswith(':'):
+        return True
+    
+    # C/C++/Java函数定义
+    if re.match(r'^(?:[\w\s\*&]+\s+)?\w+\s*\([^)]*\)\s*(?:\{|$)', first_line):
+        return True
+    
+    # 检查是否有明显的函数特征
+    if any(keyword in first_line for keyword in ['function ', 'func ', '()', '{}']):
+        return True
+    
+    return False
+
+def extract_function_name(code):
+    """提取函数名"""
+    first_line = code.strip().split('\n')[0].strip()
+    
+    # Python函数
+    if first_line.startswith('def '):
+        match = re.match(r'def\s+(\w+)\s*\(', first_line)
+        return match.group(1) if match else None
+    
+    # C/C++/Java函数
+    match = re.match(r'^(?:[\w\s\*&]+\s+)?(\w+)\s*\([^)]*\)', first_line)
+    return match.group(1) if match else None
+
+def fuzzy_search_function(filepath, original_code):
+    """模糊搜索函数"""
+    if not is_function_definition(original_code):
+        print("❌ 原代码不是函数定义，无法进行模糊搜索")
+        return None
+    
+    function_name = extract_function_name(original_code)
+    if not function_name:
+        print("❌ 无法提取函数名")
+        return None
+    
+    print(f"🔍 正在模糊搜索函数: {function_name}")
+    
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        # 根据文件类型使用不同的正则表达式
+        file_ext = os.path.splitext(filepath)[1].lower()
+        
+        if file_ext in ['.py']:
+            # Python函数模式
+            pattern = rf'def\s+{function_name}\s*\([^)]*\)\s*:[\s\S]*?(?=\n\S|\Z)'
+        elif file_ext in ['.c', '.cpp', '.cc', '.cxx', '.h', '.hpp']:
+            # C/C++函数模式
+            pattern = rf'(?:[\w\s\*&]+\s+)?{function_name}\s*\([^)]*\)\s*{{[\s\S]*?(?=^\s*\w|\Z)}'
+        elif file_ext in ['.java']:
+            # Java函数模式
+            pattern = rf'(?:[\w\s]+\s+)?{function_name}\s*\([^)]*\)\s*(?:throws\s+[\w\s,]+)?\s*{{[\s\S]*?(?=^\s*\w|\Z)}'
+        else:
+            # 通用函数模式
+            pattern = rf'{function_name}\s*\([^)]*\)\s*{{[\s\S]*?(?=^\s*\w|\Z)}'
+        
+        matches = list(re.finditer(pattern, content, re.MULTILINE))
+        
+        if not matches:
+            print(f"❌ 未找到函数 '{function_name}'")
+            return None
+        
+        if len(matches) == 1:
+            return matches[0].group(0)
+        else:
+            print(f"找到 {len(matches)} 个匹配的函数:")
+            for i, match in enumerate(matches):
+                print(f"{i+1}. {match.group(0)[:100]}...")
+            
+            while True:
+                try:
+                    choice = input("请选择要替换的函数 (输入数字或 'c' 取消): ").strip()
+                    if choice.lower() == 'c':
+                        return None
+                    index = int(choice) - 1
+                    if 0 <= index < len(matches):
+                        return matches[index].group(0)
+                    else:
+                        print("无效的选择")
+                except ValueError:
+                    print("请输入数字")
+    
+    except Exception as e:
+        print(f"❌ 模糊搜索出错: {e}")
+        return None
+
 def confirm_replacement(original, modified, filename, filepath):
     """显示代码差异并请求用户确认替换"""
     print(f"\n📄 文件: {filename} ({filepath})")
@@ -204,6 +302,17 @@ def check_and_create_git_branch():
         print(f"❌ Git操作出错: {e}")
         return False
 
+def check_exact_match(filepath, original_code):
+    """检查文件中是否存在精确匹配的原代码"""
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        return original_code in content
+    except Exception as e:
+        print(f"❌ 检查精确匹配时出错: {e}")
+        return False
+
 def apply_code_replacement(filepath, original, modified):
     """应用代码替换"""
     try:
@@ -228,14 +337,29 @@ def apply_code_replacement(filepath, original, modified):
             return True
         else:
             print(f"❌ 未找到匹配的原代码")
-            print("原代码内容:")
-            print("-" * 40)
-            print(original)
-            print("-" * 40)
-            print("文件内容:")
-            print("-" * 40)
-            print(content[:500] + "..." if len(content) > 500 else content)
-            print("-" * 40)
+            return False
+            
+    except Exception as e:
+        print(f"❌ 文件操作出错: {e}")
+        return False
+
+def fuzzy_apply_replacement(filepath, original_code, modified_code, original_function):
+    """应用模糊替换"""
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        # 替换整个函数
+        if original_function in content:
+            new_content = content.replace(original_function, modified_code)
+            
+            with open(filepath, 'w', encoding='utf-8') as f:
+                f.write(new_content)
+            
+            print(f"✅ 函数替换完成: {filepath}")
+            return True
+        else:
+            print("❌ 模糊替换失败")
             return False
             
     except Exception as e:
@@ -295,6 +419,95 @@ def format_output(code_edits):
     
     return output
 
+def process_single_code_edit(edit):
+    """处理单个代码编辑块"""
+    # 查找文件
+    filepath = find_file_in_project(edit['filename'])
+    if not filepath:
+        print(f"❌ 找不到文件: {edit['filename']}")
+        print("在以下位置查找:")
+        print("  - 当前目录")
+        print("  - 所有子目录")
+        return None
+    
+    original_code = edit['original']
+    modified_code = edit['modified']
+    
+    # 1. 先检查是否存在完全匹配的A
+    print("🔍 检查精确匹配...")
+    exact_match = check_exact_match(filepath, original_code)
+    
+    if exact_match:
+        print("✅ 找到精确匹配")
+        # 直接使用原代码和修改后代码
+        final_original = original_code
+        final_modified = modified_code
+        match_type = "exact"
+    else:
+        print("❌ 精确匹配失败")
+        
+        # 2. 如果不存在且A是函数，进行函数模糊搜索
+        if is_function_definition(original_code):
+            print("🔍 检测到函数定义，尝试模糊搜索...")
+            found_function = fuzzy_search_function(filepath, original_code)
+            
+            if found_function:
+                print("✅ 模糊搜索找到匹配")
+                final_original = found_function
+                final_modified = modified_code
+                match_type = "fuzzy"
+            else:
+                # 3. 如果模糊搜索失败，尝试添加缩进
+                print("🔍 模糊搜索失败，尝试添加缩进...")
+                indented_original = add_indentation(original_code)
+                indented_modified = add_indentation(modified_code)
+                
+                if check_exact_match(filepath, indented_original):
+                    print("✅ 添加缩进后找到匹配")
+                    final_original = indented_original
+                    final_modified = indented_modified
+                    match_type = "indented"
+                else:
+                    print("❌ 所有匹配方法都失败")
+                    return None
+        else:
+            # 4. 如果A不是函数，直接尝试添加缩进
+            print("🔍 尝试添加缩进...")
+            indented_original = add_indentation(original_code)
+            indented_modified = add_indentation(modified_code)
+            
+            if check_exact_match(filepath, indented_original):
+                print("✅ 添加缩进后找到匹配")
+                final_original = indented_original
+                final_modified = indented_modified
+                match_type = "indented"
+            else:
+                print("❌ 所有匹配方法都失败")
+                return None
+    
+    # 成功匹配后让用户确认替换
+    if not confirm_replacement(final_original, final_modified, edit['filename'], filepath):
+        print("❌ 用户取消替换")
+        return None
+    
+    # 应用代码替换
+    if match_type == "fuzzy":
+        success = fuzzy_apply_replacement(filepath, original_code, final_modified, final_original)
+    else:
+        success = apply_code_replacement(filepath, final_original, final_modified)
+    
+    if success:
+        # 返回成功处理的编辑信息
+        return {
+            'filename': edit['filename'],
+            'original': final_original,
+            'modified': final_modified,
+            'match_type': match_type
+        }
+    else:
+        print("❌ 代码替换失败")
+        return None
+
 def process_code_edits(code_edits):
     """处理多个代码编辑块"""
     successful_edits = []
@@ -302,36 +515,9 @@ def process_code_edits(code_edits):
     for i, edit in enumerate(code_edits):
         print(f"\n🔄 处理第 {i+1}/{len(code_edits)} 个代码编辑块...")
         
-        # 查找文件
-        filepath = find_file_in_project(edit['filename'])
-        if not filepath:
-            print(f"❌ 找不到文件: {edit['filename']}")
-            print("在以下位置查找:")
-            print("  - 当前目录")
-            print("  - 所有子目录")
-            continue
-        
-        # 自动缩进处理
-        needs_indentation = False
-        if edit['original'] and not any(line.startswith('    ') for line in edit['original'].split('\n') if line.strip()):
-            print("检测到代码缺少缩进，自动添加4空格缩进...")
-            needs_indentation = True
-        
-        original_code = edit['original']
-        modified_code = edit['modified']
-        
-        if needs_indentation:
-            original_code = add_indentation(original_code)
-            modified_code = add_indentation(modified_code)
-        
-        # 请求用户确认替换
-        if not confirm_replacement(original_code, modified_code, edit['filename'], filepath):
-            print("❌ 用户取消替换")
-            continue
-        
-        # 应用代码替换
-        if apply_code_replacement(filepath, original_code, modified_code):
-            successful_edits.append(edit)
+        result = process_single_code_edit(edit)
+        if result:
+            successful_edits.append(result)
     
     return successful_edits
 
