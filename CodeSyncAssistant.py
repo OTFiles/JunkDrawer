@@ -5,8 +5,8 @@
 ===========================================
 功能：解析剪贴板中的代码变更，应用替换并自动Git管理
 作者：AI助手
-版本：2.2
-更新：修正替换逻辑，先匹配后确认
+版本：2.3
+更新：添加.gitignore文件排除功能
 ===========================================
 """
 import subprocess
@@ -15,6 +15,7 @@ import re
 import os
 from datetime import datetime
 import glob
+import fnmatch
 
 def get_clipboard():
     """获取剪贴板内容"""
@@ -29,6 +30,57 @@ def get_clipboard():
     except Exception as e:
         print(f"获取剪贴板时发生错误：{e}")
         return None
+
+def load_gitignore_patterns():
+    """加载.gitignore文件中的排除模式"""
+    gitignore_path = '.gitignore'
+    patterns = []
+    
+    # 默认排除的目录和文件
+    default_patterns = [
+        '.git/', '.svn/', '.hg/', '__pycache__/', '*.pyc', '*.pyo', 
+        '*.so', '*.dll', 'build/', 'dist/', '*.egg-info/', 'node_modules/'
+    ]
+    patterns.extend(default_patterns)
+    
+    if os.path.exists(gitignore_path):
+        try:
+            with open(gitignore_path, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    # 跳过空行和注释
+                    if line and not line.startswith('#'):
+                        patterns.append(line)
+            print(f"✅ 已加载 {len(patterns)} 个排除模式")
+        except Exception as e:
+            print(f"⚠️  读取.gitignore文件失败: {e}")
+    else:
+        print("ℹ️  未找到.gitignore文件，使用默认排除模式")
+    
+    return patterns
+
+def is_ignored(path, patterns):
+    """检查路径是否应该被忽略"""
+    # 标准化路径
+    normalized_path = path.replace('\\', '/')
+    
+    for pattern in patterns:
+        # 处理目录模式
+        if pattern.endswith('/'):
+            dir_pattern = pattern.rstrip('/')
+            if fnmatch.fnmatch(normalized_path, f"*/{dir_pattern}/*") or \
+               fnmatch.fnmatch(normalized_path, f"*/{dir_pattern}") or \
+               normalized_path.endswith(f"/{dir_pattern}"):
+                return True
+        # 处理通配符模式
+        elif fnmatch.fnmatch(normalized_path, f"*/{pattern}") or \
+             fnmatch.fnmatch(normalized_path, pattern):
+            return True
+        # 处理精确匹配
+        elif normalized_path.endswith(f"/{pattern}"):
+            return True
+    
+    return False
 
 def add_indentation(text, indent_level=4):
     """为文本添加缩进"""
@@ -58,20 +110,29 @@ def remove_indentation(text, indent_level=4):
     return '\n'.join(cleaned_lines)
 
 def find_file_in_project(filename):
-    """在项目中查找文件，包括子目录"""
+    """在项目中查找文件，包括子目录，排除.gitignore中的文件"""
+    # 加载排除模式
+    ignore_patterns = load_gitignore_patterns()
+    
     # 首先检查当前目录
-    if os.path.exists(filename):
+    if os.path.exists(filename) and not is_ignored(filename, ignore_patterns):
         return filename
     
-    # 在当前目录的子目录中查找
+    # 在当前目录的子目录中查找，排除被忽略的目录
     for root, dirs, files in os.walk('.'):
+        # 过滤被忽略的目录
+        dirs[:] = [d for d in dirs if not is_ignored(os.path.join(root, d), ignore_patterns)]
+        
         if filename in files:
-            return os.path.join(root, filename)
+            filepath = os.path.join(root, filename)
+            if not is_ignored(filepath, ignore_patterns):
+                return filepath
     
-    # 使用通配符查找
+    # 使用通配符查找，但排除被忽略的文件
     matches = glob.glob(f"**/{filename}", recursive=True)
-    if matches:
-        return matches[0]
+    for match in matches:
+        if not is_ignored(match, ignore_patterns):
+            return match
     
     return None
 
@@ -427,7 +488,7 @@ def process_single_code_edit(edit):
         print(f"❌ 找不到文件: {edit['filename']}")
         print("在以下位置查找:")
         print("  - 当前目录")
-        print("  - 所有子目录")
+        print("  - 所有子目录 (已排除.gitignore中的文件)")
         return None
     
     original_code = edit['original']
@@ -522,7 +583,7 @@ def process_code_edits(code_edits):
     return successful_edits
 
 def main():
-    print("📋 CodeSync Assistant - 代码同步助手")
+    print("📋 CodeSync Assistant - 代码同步助手 v2.3")
     print("正在获取剪贴板内容...")
     
     content = get_clipboard()
